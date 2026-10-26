@@ -241,21 +241,21 @@ namespace CapriSetup
             ForeColor = Color.FromArgb(240, 241, 243);
             Font = new Font("Segoe UI", 10);
             using (Stream source = Assembly.GetExecutingAssembly().GetManifestResourceStream("Capri.Chip.ico")) if (source != null) Icon = new Icon(source);
-            Label eyebrow = LabelAt("CAPRI  /  DESKTOP COMPANION", 34, 29, 590, 22, 9, Color.FromArgb(172, 248, 98));
-            Label heading = LabelAt(removing ? "See you around." : "A little company.\nZero noise.", 31, 69, 408, 116, 29, ForeColor);
+            Label eyebrow = LabelAt("CAPRI  /  CYBERPUNK DESKTOP COMPANION v0.2.1", 34, 29, 590, 22, 9, Color.FromArgb(0, 240, 255));
+            Label heading = LabelAt(removing ? "See you around." : "Wake up, Samurai.\nCapri is online.", 31, 69, 408, 116, 28, ForeColor);
             heading.Font = new Font("Segoe UI Semibold", 29, FontStyle.Bold);
             chip = new PictureBox();
             chip.Bounds = new Rectangle(462, 80, 180, 112);
             chip.SizeMode = PictureBoxSizeMode.Zoom;
             using (Stream image = Assembly.GetExecutingAssembly().GetManifestResourceStream("Capri.Chip.png")) if (image != null) using (Bitmap loaded = new Bitmap(image)) chip.Image = new Bitmap(loaded);
             Controls.Add(chip);
-            LabelAt(removing ? "Remove the app and its shortcuts for this Windows user.\nQuit Capri from the tray before continuing." : "Right-click for her menu.", 34, 208, 610, 53, 11, Color.FromArgb(175, 179, 188));
-            desktop = new CheckBox { Text = "Add a desktop shortcut", Checked = false, AutoSize = true, Location = new Point(34, 280), Visible = !removing, ForeColor = ForeColor, BackColor = BackColor };
+            LabelAt(removing ? "Remove the app and its shortcuts for this Windows user.\nQuit Capri from the tray before continuing." : "AI Screen Vision · Anti-DoomScroll · Spotify Automation", 34, 208, 610, 53, 11, Color.FromArgb(0, 240, 255));
+            desktop = new CheckBox { Text = "Add a desktop shortcut", Checked = true, AutoSize = true, Location = new Point(34, 280), Visible = !removing, ForeColor = ForeColor, BackColor = BackColor };
             launch = new CheckBox { Text = "Open Capri when finished", Checked = true, AutoSize = true, Location = new Point(34, 310), Visible = !removing, ForeColor = ForeColor, BackColor = BackColor };
             Controls.Add(desktop);
             Controls.Add(launch);
-            status = LabelAt(removing ? "Your saved position and size will be kept." : "", 34, 350, 604, 22, 9, Color.FromArgb(146, 151, 161));
-            primary = new Button { Text = removing ? "Remove Capri" : "Install Capri", Bounds = new Rectangle(450, 399, 194, 43), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 58, 78), ForeColor = Color.White, Cursor = Cursors.Hand };
+            status = LabelAt(removing ? "Your saved position and size will be kept." : "Ready to install Capri v0.2.1 to your system.", 34, 350, 604, 22, 9, Color.FromArgb(146, 151, 161));
+            primary = new Button { Text = removing ? "Remove Capri" : "Install Capri v0.2.1", Bounds = new Rectangle(430, 399, 214, 43), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(0, 229, 255), ForeColor = Color.FromArgb(10, 15, 25), Font = new Font("Segoe UI", 10, FontStyle.Bold), Cursor = Cursors.Hand };
             primary.FlatAppearance.BorderSize = 0;
             primary.Click += Perform;
             Controls.Add(primary);
@@ -278,7 +278,7 @@ namespace CapriSetup
         {
             base.OnPaint(e);
             using (Pen line = new Pen(Color.FromArgb(56, 58, 66))) e.Graphics.DrawLine(line, 34, 382, Width - 52, 382);
-            using (Pen line = new Pen(Color.FromArgb(239, 58, 78), 3)) e.Graphics.DrawLine(line, 0, 0, ClientSize.Width, 0);
+            using (Pen line = new Pen(Color.FromArgb(0, 240, 255), 3)) e.Graphics.DrawLine(line, 0, 0, ClientSize.Width, 0);
         }
 
         private void Perform(object sender, EventArgs e)

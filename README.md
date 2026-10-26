@@ -15,6 +15,12 @@
   <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-00ffcc?style=for-the-badge" alt="License">
 </p>
 
+<p align="center">
+  <a href="../../releases/latest/download/Capri-Setup.exe">
+    <img src="https://img.shields.io/badge/⚡_DOWNLOAD_LAUNCHER-Capri--Setup.exe-00f0ff?style=for-the-badge&logo=windows&logoColor=black" alt="Download Capri Launcher">
+  </a>
+</p>
+
 <table align="center">
   <tr>
     <td align="center"><img src="assets/readme/idle.webp" alt="Capri idle" width="130"><br><sub>Idle & Watching</sub></td>
