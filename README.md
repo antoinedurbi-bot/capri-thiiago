@@ -76,6 +76,14 @@ A redesigned terminal interface inspired by futuristic sci-fi displays:
 
 ---
 
+## 🔮 Roadmap / Coming Soon
+
+- 🔒 **Lockdown Mode:** Security defense mode where Capri prevents unauthorized desktop interactions until unlocked with a secret code or voice phrase.
+- 📁 **File & Code Interaction:** Open, summarize, and edit selected workspace files.
+- 🤖 **Capri Cursor Takeover:** An animated floating cursor where Capri clicks, skips, and types directly for you.
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
