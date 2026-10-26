@@ -92,17 +92,13 @@ A redesigned terminal interface inspired by futuristic sci-fi displays:
 - **AI Brain:** Free [NVIDIA NIM API Key](https://build.nvidia.com) (recommended for instant cloud vision) or local [Ollama](https://ollama.com).
 - **Voice (Optional):** [ElevenLabs API Key](https://elevenlabs.io) for realistic speech synthesis.
 
-### Running & Building
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/TU_USUARIO/Capri.git
-   cd Capri
-   ```
-2. Build from source (uses standard .NET Framework compiler):
-   ```cmd
-   build.bat
-   ```
-3. Launch `Capri.exe`. Open the **Mainframe** and paste your API keys under **Brain** and **Speech**.
+### Installation & Setup
+1. **Download Launcher:**
+   Click the **[⚡ DOWNLOAD LAUNCHER]** button above or download Capri-Setup.exe from [Releases](https://github.com/thiiago-dev/capri-thiiago/releases/latest).
+2. **Run Installer:**
+   Double-click Capri-Setup.exe and click **Install Capri v0.2.1**. It creates your Desktop shortcut and starts Capri.
+3. **Configure Your Brain:**
+   Open the **Mainframe** (right-click Capri or tray icon → Mainframe) and paste your free [NVIDIA NIM API Key](https://build.nvidia.com) (recommended for fast cloud vision) or connect your local Ollama instance.
 
 ---
 
