@@ -1,134 +1,101 @@
 <p align="center">
-  <img src="assets/chip-source.png" alt="Chip" width="40%" align="middle">
-  <img src="assets/capri.png" alt="Capri" width="40%" align="middle">
+  <img src="assets/capri.png" alt="Capri" width="180">
+</p>
+
+<h1 align="center">Capri — Cyberpunk Desktop Companion</h1>
+
+<p align="center">
+  <b>An autonomous, vision-enabled desktop companion with a Cyberpunk soul.</b><br>
+  Real-time screen intelligence · Anti-DoomScroll sentinel · Spotify & app automation · Interactive desktop physics
 </p>
 
 <p align="center">
-  Bring Capri (back lol) to life as a desktop companion! Inspired by jpartnma_'s tiktok video.
-</p>
-
-> [!NOTE]
-> **Custom Community Edition (v0.2.x)**  
-> This is an enhanced, non-commercial fork based on the original **[Capri Desktop](https://github.com/lachydotmcg/capri-desktop)** created by **[Lachy](https://github.com/lachydotmcg)** under the **[PolyForm Noncommercial License 1.0.0](LICENSE.md)**. All original credits, assets, and copyrights belong to the original author.
-
-### 🌟 New Features in this Version (v0.2.x)
-- 👁️ **Real-Time Screen Vision & Context:** Full screen glance awareness with ground-truth active window detection (knows what apps and songs are open).
-- 🛡️ **DoomScroll Detector:** Monitors YouTube Shorts / Instagram Reels / TikTok, triggers a Cyberpunk glitch effect, alerts the user, and closes the distracting tab.
-- 🎵 **Spotify & App Automation (Bilingual ES / EN):** Voice commands to launch apps (*"Ábreme Spotify"* / *"Open Spotify"*) and search & play songs automatically.
-- 🖥️ **Cyberpunk HUD Mainframe:** Redesigned terminal interface with neon accents, custom versioning, and no text clipping.
-- ⚡ **High-Speed Vision Pipeline:** Sub-second vision reasoning using NVIDIA Nemotron-VL multimodal models.
-
-<p align="center">
-  <a href="https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-Setup.exe"><b>Download for Windows</b></a>
-  &nbsp;·&nbsp;
-  <a href="#mac-and-linux-early-preview">Mac and Linux</a>
-  &nbsp;·&nbsp;
-  <a href="https://lachydotmcg.github.io/capri-desktop/setup/">Setup guide</a>
-  &nbsp;·&nbsp;
-  <a href="https://lachydotmcg.github.io/capri-desktop/">Website</a>
-  &nbsp;·&nbsp;
-  <a href="https://discord.gg/F4fDHfGtFk">Discord</a>
+  <img src="https://img.shields.io/badge/version-v0.2.1-cyan?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-purple?style=for-the-badge" alt="Windows">
+  <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-00ffcc?style=for-the-badge" alt="License">
 </p>
 
 <table align="center">
   <tr>
-    <td align="center"><img src="assets/readme/idle.webp" alt="Capri idling and blinking" width="150"><br><sub>Hanging out</sub></td>
-    <td align="center"><img src="assets/readme/talk.webp" alt="Capri talking" width="150"><br><sub>Talking</sub></td>
-    <td align="center"><img src="assets/readme/tossed.webp" alt="Capri flailing while dragged" width="150"><br><sub>Getting tossed</sub></td>
-    <td align="center"><img src="assets/readme/glitch.webp" alt="Capri glitching" width="150"><br><sub>Glitching</sub></td>
-    <td align="center"><img src="assets/readme/sleep.webp" alt="Capri asleep, then booting back up" width="150"><br><sub>Napping</sub></td>
+    <td align="center"><img src="assets/readme/idle.webp" alt="Capri idle" width="130"><br><sub>Idle & Watching</sub></td>
+    <td align="center"><img src="assets/readme/talk.webp" alt="Capri talking" width="130"><br><sub>Neural Chat</sub></td>
+    <td align="center"><img src="assets/readme/tossed.webp" alt="Capri tossed" width="130"><br><sub>Physics & Throw</sub></td>
+    <td align="center"><img src="assets/readme/glitch.webp" alt="Capri glitching" width="130"><br><sub>Glitch Reaction</sub></td>
+    <td align="center"><img src="assets/readme/sleep.webp" alt="Capri sleeping" width="130"><br><sub>Standby Mode</sub></td>
   </tr>
 </table>
 
-Beware that Capri may try to take over your human CPU. We take no responsibility for her actions.
+---
 
-## What she does
+## ⚡ What Makes This Version Different?
 
-- **Talks back.** Type to her and she answers in her own words.
-- **Talks out loud.** Add an ElevenLabs key and she speaks, or voice chat with her.
-- **Does things for you.** Ask her to open apps, play music or close a tab.
-- **Watches you play.** Turn it on and she comments on your games.
-- **Sits on your stuff.** Drop her on a window, an icon or the bottom of your screen.
+This custom build transforms Capri from a passive desktop buddy into an **active visual assistant and productivity sentinel**:
 
-<p align="center">
-  <img src="assets/readme/bubble.png" alt="Capri's speech box with the pencil and wave buttons" width="31%">
-  <img src="assets/readme/sit.png" alt="Capri sitting on a window" width="31%">
-  <img src="assets/readme/mainframe.png" alt="The Capri Mainframe" width="22%">
-</p>
+### 🛡️ Anti-DoomScroll Sentinel
+Activate the dedicated **DoomScroll Detector** from the Mainframe. Capri monitors your screen in silence:
+- Detects YouTube Shorts, Instagram Reels, and infinite-scrolling feeds.
+- Instantly triggers a Cyberpunk glitch HUD effect and scolds you in English to get back on track.
+- Intercepts and terminates the distracting tab automatically.
 
-## What you need
+### 👁️ Ultra-Fast Visual AI (NVIDIA Nemotron 3.5 VL)
+Ask her *"What's on my screen?"* or *"Mira mi pantalla"*. Capri captures your workspace and understands the exact context within milliseconds:
+- Reads your open windows, documents, games, or media player.
+- Context-aware ground truth: knows what song is playing in Spotify or which code editor has focus even while chatting.
 
-- Windows 10 or 11 (64-bit). Nothing else to install.
-- A mic, if you want to voice chat.
+### 🎵 Voice & App Automation (Bilingual ES / EN)
+Give natural voice or text commands:
+- *"Ábreme Spotify"* / *"Open Spotify"*
+- *"Pon la canción [título]"* / *"Play [song name]"* — she launches the app, types into search, and triggers playback for you.
+- Window management: minimize, switch, or close apps on demand.
 
-| | Brain on your PC | Brain from a key (like the free NVIDIA one) |
-| --- | --- | --- |
-| Memory | 8 GB, 16 GB is better | 4 GB |
-| Graphics card | Optional, but 4 GB or more makes her faster | Not needed |
-| Space | 3 to 5 GB | Under 100 MB |
-| Internet | Only for the download | Always |
+### 🖥️ Cyberpunk Mainframe HUD
+A redesigned terminal interface inspired by futuristic sci-fi displays:
+- Neon cyan and violet holographic color scheme.
+- Live status indicators, fast API configuration, and modular toggles.
 
-## Getting started
+---
 
-1. Download **Capri-Setup.exe** and run it
-2. In the Capri Mainframe, press **Set up her brain**, or press **Free key** to use a free NVIDIA key
-3. Optional: paste an ElevenLabs key so she can talk. Make the key with **Restrict key** turned off
+## 🎮 How to Interact
 
-Stuck? The [setup guide](https://lachydotmcg.github.io/capri-desktop/setup/) walks through it, or ask in the [Discord](https://discord.gg/F4fDHfGtFk).
+| Action | Control |
+|---|---|
+| **Chat / Command** | Click the **pencil icon** or right-click to open text box |
+| **Voice Chat** | Click the **wave icon** or press <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>V</kbd> |
+| **Pick up / Throw** | Click & drag Capri anywhere across your monitors |
+| **Sit on Windows** | Drag her over any window title bar or taskbar |
+| **Pin in place** | <kbd>Shift</kbd> + drop |
+| **Hang on cursor** | <kbd>Ctrl</kbd> + drop (click her to detach) |
+| **Mainframe HUD** | Right-click Capri or tray icon → **Mainframe** |
+| **Screen Vision** | Type or say *"Look at my screen"* / *"Mira mi pantalla"* |
 
-Windows or your antivirus may warn you because it's a new app. All the code is here.
+---
 
-## Mac and Linux (early preview)
+## 🚀 Quick Start
 
-She sits on your windows and chats. Voice, the Mainframe and doing things for you are Windows-only for now.
+### Prerequisites
+- **OS:** Windows 10 or 11 (64-bit)
+- **Audio:** Microphone (optional, for voice conversation)
+- **AI Brain:** Free [NVIDIA NIM API Key](https://build.nvidia.com) (recommended for instant cloud vision) or local [Ollama](https://ollama.com).
+- **Voice (Optional):** [ElevenLabs API Key](https://elevenlabs.io) for realistic speech synthesis.
 
-1. Download [Mac (Apple Silicon)](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-mac-apple-silicon.zip), [Mac (Intel)](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-mac-intel.zip) or [Linux](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-linux-x64.tar.gz)
-2. Install [Ollama](https://ollama.com), then run `ollama pull gemma4:e4b` for her brain
-3. **Mac:** unzip it and open Capri. If macOS says it can't check her, open System Settings → Privacy & Security and click **Open Anyway**. Needs macOS 15 or newer
-4. **Linux:** unpack it and run `Capri/Capri`. She sits on windows on X11; on Wayland she sits on the bottom of your screen
+### Running & Building
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/TU_USUARIO/Capri.git
+   cd Capri
+   ```
+2. Build from source (uses standard .NET Framework compiler):
+   ```cmd
+   build.bat
+   ```
+3. Launch `Capri.exe`. Open the **Mainframe** and paste your API keys under **Brain** and **Speech**.
 
-## How to use her
+---
 
-- **Pencil:** type to her
-- **Wave:** voice chat
-- **Drag her:** sit her on a window
-- **Right-click her** or the tray icon: menu and settings
+## 📜 Credits & License
 
-Just ask her for things, like "open Spotify", "play Blinding Lights", "pause", "what's playing?" or "close Discord".
-
-<details>
-<summary>All controls</summary>
-
-| Control | What it does |
-| --- | --- |
-| Shift + drop | sit her right where you drop her |
-| Ctrl + drop | she hangs on; click her to let go |
-| Mic button | mute your mic in voice chat |
-| Ctrl + Alt + V | start or stop voice chat |
-| Ctrl + Alt + N | mute your mic |
-| Ctrl + Alt + C | get her off your cursor |
-| Right-click, Move | she hops between your open windows |
-| Watch my screen | in the Mainframe: she comments as you play |
-| Speak replies | in the Mainframe: turn off to save ElevenLabs credits |
-
-</details>
-
-## Coming up
-
-- Working with your files: open, read and edit the ones you pick
-- Controlling YouTube and your apps: skip, fullscreen, click, type and scroll
-- A free voice that runs on your PC
-- Remembering things about you
-- Looking things up and telling you the answer
-- Her own cursor that she moves around your screen
-- Head pats (smh)
-- Mischief mode: screen glitches, stealing your cursor, "you've been hacked" notes
-- Mac and Linux: her voice, the Mainframe and doing things for you
-
-## Licence
-
-Free for anything non-commercial: use her, share her, change her. No selling her or putting her in paid products. Full terms in [LICENSE.md](LICENSE.md) (PolyForm Noncommercial 1.0.0).
-
-Have fun and more updates to come!
-
-<sub>Setup guide based on Dancer's guide in the Discord. Font: Share Tech Mono (OFL).</sub>
+- **Original Creator:** Based on the original [Capri Desktop](https://github.com/lachydotmcg/capri-desktop) by [Lachy](https://github.com/lachydotmcg). All original sprites, character animations, and base physics are credited to the original author.
+- **License:** Released under the **[PolyForm Noncommercial License 1.0.0](LICENSE.md)**.
+  - You are free to use, study, modify, and share this software for any non-commercial purpose.
+  - Commercial use, paid distribution, or selling of this software is strictly prohibited.
+  - *Required Notice: Copyright 2026 Lachy (https://github.com/lachydotmcg)*
