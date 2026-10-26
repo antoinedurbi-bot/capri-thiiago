@@ -86,7 +86,7 @@ namespace CapriDesktop
             DoubleBuffered = true;
             ClientSize = new Size(Wide, Tall + SetupHeight + KeyRow);
             Caption("CAPRI // MAINFRAME", 26, 17, Look.Mono(12.5f, FontStyle.Bold, GraphicsUnit.Point), Look.Ink);
-            Caption("SYS.LINK // NEURAL TERMINAL", 28, 37, Look.Mono(7.5f, FontStyle.Regular, GraphicsUnit.Point), Look.Cyan);
+            Caption("SYS.LINK // NEURAL TERMINAL", 28, 37, Look.Mono(7.5f, FontStyle.Regular, GraphicsUnit.Point), Look.Yellow);
             Label build = Caption("BUILD v" + version, 232, 19, Look.Mono(8.5f, FontStyle.Bold, GraphicsUnit.Point), Look.Pink);
             build.AutoSize = false;
             build.TextAlign = ContentAlignment.MiddleRight;
@@ -237,12 +237,15 @@ namespace CapriDesktop
             Graphics graphics = e.Graphics;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Backdrop(graphics, this, s);
+            // Outer frame carries the strongest single read of the whole window, so it's the one
+            // place worth spending the CP2077-signature yellow on; the dot/secondary accents below
+            // stay cyan as a secondary neon against it, same hierarchy CP2077's own menus use.
             using (GraphicsPath outer = Look.Plate(new RectangleF(1.5f * s, 1.5f * s, Width - 3f * s - 1, Height - 3f * s - 1), 13 * s, -1, Height / 2f, 0, true))
-            using (Pen glow = new Pen(Color.FromArgb(45, Look.Cyan), 4.5f * s))
+            using (Pen glow = new Pen(Color.FromArgb(45, Look.Yellow), 4.5f * s))
                 graphics.DrawPath(glow, outer);
             using (GraphicsPath edge = Look.Plate(new RectangleF(s, s, Width - 2 * s - 1, Height - 2 * s - 1), 12 * s, -1, Height / 2f, 0, true))
-            using (Pen cyan = new Pen(Look.Cyan, 2 * s))
-                graphics.DrawPath(cyan, edge);
+            using (Pen yellowEdge = new Pen(Look.Yellow, 2 * s))
+                graphics.DrawPath(yellowEdge, edge);
             using (GraphicsPath inner = Look.Plate(new RectangleF(4 * s, 4 * s, Width - 8 * s - 1, Height - 8 * s - 1), 9 * s, -1, Height / 2f, 0, true))
             using (Pen pink = new Pen(Color.FromArgb(40, Look.Pink), 1 * s))
                 graphics.DrawPath(pink, inner);

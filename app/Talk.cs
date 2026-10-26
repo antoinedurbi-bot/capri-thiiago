@@ -18,7 +18,7 @@ namespace CapriDesktop
         internal static readonly Color Panel = Color.FromArgb(9, 11, 15);
         internal static readonly Color Cyan = Color.FromArgb(58, 214, 235);
         internal static readonly Color Red = Color.FromArgb(232, 36, 64);
-        internal static readonly Color Yellow = Color.FromArgb(244, 214, 70);
+        internal static readonly Color Yellow = Color.FromArgb(252, 238, 20); // CP2077's signature acid yellow - was a muted gold, now punchier/more neon
         internal static readonly Color Neon = Color.FromArgb(56, 176, 255);
         internal static readonly Color Ink = Color.FromArgb(232, 236, 240);
         internal static readonly Color Dim = Color.FromArgb(122, 128, 138);
