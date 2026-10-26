@@ -417,6 +417,10 @@ namespace CapriDesktop
         private Ledge fallTo;
         private double fallSpeed;
         private double fallStep;
+        private bool walking;
+        private Ledge walkTo;
+        private int walkTargetX;
+        private double walkStep;
         private double coveredSince = -1;
         private double seatLost = -1;
         private System.Collections.Generic.List<Rectangle> icons = new System.Collections.Generic.List<Rectangle>();
@@ -657,7 +661,7 @@ namespace CapriDesktop
             typer.VisibleChanged += delegate { if (!typer.Visible && replyDone >= 0) replyDone = clock.Elapsed.TotalSeconds; };
             frames = new System.Windows.Forms.Timer();
             frames.Interval = 33;
-            frames.Tick += delegate { if (riding) FollowCursor(); else if (falling) Tumble(clock.Elapsed.TotalSeconds); else if (seat != null) HoldSeat(clock.Elapsed.TotalSeconds); RenderFrame(); if (!riding && !dragging && !preferences.Motion && clip == idle && speech == null && talkState == TalkState.Off) frames.Stop(); };
+            frames.Tick += delegate { if (riding) FollowCursor(); else if (falling) Tumble(clock.Elapsed.TotalSeconds); else if (walking) Walk(clock.Elapsed.TotalSeconds); else if (seat != null) HoldSeat(clock.Elapsed.TotalSeconds); RenderFrame(); if (!riding && !dragging && !preferences.Motion && clip == idle && speech == null && talkState == TalkState.Off) frames.Stop(); };
             signals = new System.Windows.Forms.Timer();
             signals.Interval = 250;
             signals.Tick += delegate
@@ -1003,7 +1007,7 @@ namespace CapriDesktop
             int dx = position.X - pointerStart.X;
             int dy = position.Y - pointerStart.Y;
             if (!dragging && dx * dx + dy * dy < 25) return;
-            if (!dragging) { seat = null; falling = false; hanging = false; Play(dangle); frames.Start(); RefreshIcons(); }
+            if (!dragging) { seat = null; falling = false; walking = false; hanging = false; Play(dangle); frames.Start(); RefreshIcons(); }
             dragging = true;
             pendingClick = false;
             clickDelay.Stop();
@@ -1090,7 +1094,7 @@ namespace CapriDesktop
             dragging = false;
             Capture = false;
             seat = null;
-            falling = false;
+            falling = false; walking = false;
             hanging = false;
             hotkey = Native.RegisterHotKey(Handle, DismountId, 0x0001 | 0x0002 | 0x4000, 0x43);
             riding = true;
@@ -1188,7 +1192,7 @@ namespace CapriDesktop
         private void CheckWander(double now, long quiet)
         {
             bool settled = talkState == TalkState.Off || (talkState == TalkState.Talking && replyDone >= 0 && now - replyDone > 8);
-            if (!preferences.Wander || hidden || dragging || pressed || riding || falling || hanging || chatting || typer.Visible || menu.Visible || speech != null || !settled || quiet > 90000 || (seat != null && seat.Free) || (clip != idle && clip != perch)) return;
+            if (!preferences.Wander || hidden || dragging || pressed || riding || falling || walking || hanging || chatting || typer.Visible || menu.Visible || speech != null || !settled || quiet > 90000 || (seat != null && seat.Free) || (clip != idle && clip != perch)) return;
             if (nextWander < 0) nextWander = now + 20 + random.NextDouble() * 40;
             if (now < nextWander) return;
             nextWander = now + 45 + random.NextDouble() * 75;
@@ -1216,11 +1220,42 @@ namespace CapriDesktop
             if (spots.Count == 0) return false;
             Ledge spot = spots[random.Next(spots.Count)];
             int margin = preferences.Size / 4;
+            int targetX = spot.Left + margin + random.Next(Math.Max(1, spot.Right - spot.Left - 2 * margin));
             hanging = false;
-            anchor = Seated(spot.Left + margin + random.Next(Math.Max(1, spot.Right - spot.Left - 2 * margin)), spot.Y);
+            // Walk there (slide across the same taskbar/window edge she's already standing on)
+            // instead of teleporting - there's no dedicated walk-cycle sprite, so this reuses the
+            // existing perch frames while sliding her X position, which reads as "scooting along"
+            // rather than a true walk animation, but is a lot better than popping to a new spot.
+            // Only when it's genuinely the same surface: a different window or floor level has no
+            // continuous path between the two spots, so that case still jumps straight there.
+            // Skipped under `testing`: the smoke test calls Wander() and reads `seat` synchronously
+            // right after, which a multi-tick walk can't satisfy (see the "did not land her" check).
+            if (!testing && seat != null && spot.Window == seat.Window && spot.Floor == seat.Floor && Math.Abs(spot.Y - seat.Y) <= 4)
+            {
+                walking = true;
+                walkTo = spot;
+                walkTargetX = targetX;
+                walkStep = clock.Elapsed.TotalSeconds;
+                seat = null;
+                frames.Start();
+                return true;
+            }
+            anchor = Seated(targetX, spot.Y);
             Land(spot);
             frames.Start();
             return seat == spot;
+        }
+
+        private void Walk(double now)
+        {
+            double step = Math.Max(0, Math.Min(0.05, now - walkStep));
+            walkStep = now;
+            int dx = walkTargetX - Hip().X;
+            if (dx == 0) { Land(walkTo); return; }
+            int speed = Math.Max(1, (int)Math.Ceiling(preferences.Size * 2.2 * step));
+            int move = Math.Min(Math.Abs(dx), speed) * Math.Sign(dx);
+            anchor.X += move;
+            if (move == dx) Land(walkTo);
         }
 
         private void SitHere()
@@ -1236,7 +1271,7 @@ namespace CapriDesktop
         {
             if (hidden || riding) return;
             seat = null;
-            falling = false;
+            falling = false; walking = false;
             fallTo = null;
             hanging = true;
             Play(dangle);
@@ -1258,7 +1293,7 @@ namespace CapriDesktop
             seat = null;
             coveredSince = -1;
             seatLost = -1;
-            falling = false;
+            falling = false; walking = false;
             fallTo = null;
             leanAngle = 0;
             Play(glitch);
@@ -1271,7 +1306,7 @@ namespace CapriDesktop
             fallStep = now;
             Point hip = Hip();
             if (fallTo == null) fallTo = Ledges.Below(Ledges.Find(Skip(), icons), hip, 0, int.MaxValue, 0, Headroom());
-            if (fallTo == null) { falling = false; SavePreferences(); return; }
+            if (fallTo == null) { falling = false; walking = false; SavePreferences(); return; }
             fallSpeed += preferences.Size * 11 * step;
             int drop = (int)Math.Ceiling(fallSpeed * step);
             if (hip.Y + drop >= fallTo.Y) Land(fallTo);
@@ -1287,7 +1322,7 @@ namespace CapriDesktop
                 if (!Ledges.Showing(ledge.Window, out bounds) || !Ledges.Seatable(ledge.Window, bounds)) return;
                 if (bounds != ledge.Bounds) { ledge.Left = bounds.Left; ledge.Right = bounds.Right; ledge.Y = bounds.Top; ledge.Bounds = bounds; }
             }
-            falling = false;
+            falling = false; walking = false;
             coveredSince = -1;
             seatLost = -1;
             int x = ledge.Icon.IsEmpty ? Math.Max(ledge.Left + 8, Math.Min(Hip().X, ledge.Right - 8)) : ledge.Icon.Left + ledge.Icon.Width / 2;
@@ -1356,7 +1391,7 @@ namespace CapriDesktop
         {
             preferences.NoSitting = !preferences.NoSitting;
             sitItem.Checked = !preferences.NoSitting;
-            if (preferences.NoSitting && (seat != null || falling)) { seat = null; falling = false; Play(idle); UpdateAnimation(); }
+            if (preferences.NoSitting && (seat != null || falling || walking)) { seat = null; falling = false; walking = false; Play(idle); UpdateAnimation(); }
             SavePreferences();
         }
 
@@ -1373,7 +1408,7 @@ namespace CapriDesktop
         {
             hidden = value;
             visibilityItem.Text = value ? "Show Capri" : "Hide Capri";
-            if (value) { StopRide(); seat = null; falling = false; hanging = false; pendingClick = false; clickDelay.Stop(); frames.Stop(); Hide(); pill.Hide(); typer.Hide(); CloseTalk(); StopChat(); }
+            if (value) { StopRide(); seat = null; falling = false; walking = false; hanging = false; pendingClick = false; clickDelay.Stop(); frames.Stop(); Hide(); pill.Hide(); typer.Hide(); CloseTalk(); StopChat(); }
             else { anchor = KeepOnScreen(anchor); Location = anchor; Play(grin); Show(); RenderFrame(); UpdateAnimation(); }
             mainframe.Sync();
         }
@@ -1382,7 +1417,7 @@ namespace CapriDesktop
         {
             StopRide();
             seat = null;
-            falling = false;
+            falling = false; walking = false;
             Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
             anchor = new Point(area.Right - Width - 28, area.Bottom - Height - 12);
             SetHidden(false);
@@ -3205,8 +3240,8 @@ namespace CapriDesktop
 
         private void UpdateAnimation()
         {
-            if (!preferences.Motion && !riding && seat == null && !falling && clip != glitch && clip != dangle && clip != wake) Play(idle);
-            if ((preferences.Motion || riding || seat != null || falling || clip != idle || speech != null || talkState != TalkState.Off) && !hidden) frames.Start(); else frames.Stop();
+            if (!preferences.Motion && !riding && seat == null && !falling && !walking && clip != glitch && clip != dangle && clip != wake) Play(idle);
+            if ((preferences.Motion || riding || seat != null || falling || walking || clip != idle || speech != null || talkState != TalkState.Off) && !hidden) frames.Start(); else frames.Stop();
             RenderFrame();
         }
 
