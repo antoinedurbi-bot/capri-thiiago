@@ -49,7 +49,8 @@ namespace CapriDesktop
         internal readonly IntPtr Handle;
         internal readonly string Title;
         internal readonly string Program;
-        internal OpenWindow(IntPtr handle, string title, string program) { Handle = handle; Title = title; Program = program; }
+        internal readonly bool Minimized;
+        internal OpenWindow(IntPtr handle, string title, string program, bool minimized = false) { Handle = handle; Title = title; Program = program; Minimized = minimized; }
     }
 
     internal static class Hands
@@ -107,7 +108,17 @@ namespace CapriDesktop
             @"|^(i (want|need|wanna|would like) (you to |to )?(open|launch|play|listen|watch|search)|let's (play|listen|watch)|find (me )?.+ (on|online)|can (you|u) see)\b" +
             "|" + LookupWords +
             @"|^(ouvre|ouvrir|lancer?|d[ée]marrer?|fermer?|quitter?|r[ée]duis|r[ée]duire|minimiser?|chercher?|rechercher?|mets|mettre|jouer?|passer?|couper?|augmenter?|baisser?|regarder?|afficher?|montre-moi|va sur|aller sur|retourne sur)\b" +
-            @"|^(tu vois|qu'est-ce que (tu vois|je fais)|c'est quoi (cette|la) (chanson|musique)|quelle (chanson|musique)|qu'est-ce qu'il y a sur mon [ée]cran)\b", RegexOptions.IgnoreCase);
+            @"|^(tu vois|qu'est-ce que (tu vois|je fais)|c'est quoi (cette|la) (chanson|musique)|quelle (chanson|musique)|qu'est-ce qu'il y a sur mon [ée]cran)\b" +
+            @"|^([áa]bre(me)?|abrir|iniciar?|ejecutar?|pon(me|er)?|reproduc(ir|e)|cierra|cerrar|minimiza(r)?|busca(r|me)?|pausa(r)?|sube|baja|silencia(r)?|mira(r)?|ves|f[íi]jate|echa(le)? un vistazo|qu[ée] (ves|hay|tengo|estoy|te parece)|puedes (ver|mirar))\b", RegexOptions.IgnoreCase);
+
+        private static readonly Regex ScreenQuery = new Regex(
+            @"\b(my screen|the screen|on screen|what do you see|can you see|look at (this|that|my|the|what)|check (this|that) out|what am i (doing|playing|watching|listening)|mira(r)? (mi |la |esto|lo que|aqu[íi]|en mi)|en (mi |la )?pantalla|qu[ée] (ves|hay en mi pantalla|estoy (haciendo|viendo|jugando|escuchando)|tengo abierto|te parece esto)|puedes (ver|mirar)|ves (esto|mi pantalla|lo que))\b" +
+            @"|^(mira|mirar|look|see this|check this|f[íi]jate|echa(le)? un vistazo)\b", RegexOptions.IgnoreCase);
+
+        internal static bool AskingToLook(string said)
+        {
+            return !string.IsNullOrWhiteSpace(said) && ScreenQuery.IsMatch(said);
+        }
 
         internal static Func<List<InstalledApp>> Catalog = ReadCatalog;
         internal static Func<string, bool> Exists = File.Exists;
@@ -270,13 +281,16 @@ namespace CapriDesktop
             return text.Length > 1 && text.Length < 80 && Regex.IsMatch(answered ?? "", @"(?<!\w)" + Regex.Escape(text) + @"(?!\w)", RegexOptions.IgnoreCase);
         }
 
-        private static readonly Regex Lead = new Regex(@"^((hey|yo|ok|okay|salut|bonjour)[\s,]+)?(capri\b[\s,]*)?(((can|could|would|will) (you|u)|do (you|u)(?= mind)|please|pls|plz|stp|s'il te pla[iî]t|(est-ce que )?tu peux|peux-tu|pourrais-tu)\s+)*", RegexOptions.IgnoreCase);
+        private static readonly Regex Lead = new Regex(@"^((hey|yo|ok|okay|salut|bonjour|hola|oye|ey)[\s,]+)?(capri\b[\s,]*)?(((can|could|would|will) (you|u)|do (you|u)(?= mind)|please|pls|plz|stp|s'il te pla[iî]t|(est-ce que )?tu peux|peux-tu|pourrais-tu|por favor|porfa|puedes|podr[íi]as|me puedes|me podr[íi]as)\s+)*", RegexOptions.IgnoreCase);
         private static readonly Regex Chatter = new Regex(@"^(play (with|along|around|dead|dumb|nice|fair|a game with|a joke)|open up (to|about)|start (a story|a joke|an argument)|run (a mile|a race)|kill (the boss|me|time)|look (at it this way|forward)|show me (how|why)|check my (spelling|grammar)|rate my joke|mets-toi)\b", RegexOptions.IgnoreCase);
 
         private static string Asked(string said)
         {
             string text = Lead.Replace(Regex.Replace((said ?? "").Replace('\u2019', '\'').Trim(), @"\s+", " "), "");
-            for (int i = 0; i < 3; i++) text = Regex.Replace(Regex.Replace(text, @"[\s,.!?]+$", ""), @"\s+(for me|please|pls|plz|rn|right now|now|stp|s'il te pla[iî]t)$", "", RegexOptions.IgnoreCase);
+            for (int i = 0; i < 3; i++) text = Regex.Replace(Regex.Replace(text, @"[\s,.!?]+$", ""), @"\s+(for me|please|pls|plz|rn|right now|now|stp|s'il te pla[iî]t|por favor|porfa|ahora|ahora mismo)$", "", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"^(?:que\s+me\s+|si\s+(?:me\s+)?puedes\s+|a\s+ver\s+si\s+(?:me\s+)?|quiero\s+que\s+(?:me\s+)?)", "", RegexOptions.IgnoreCase).Trim();
+            text = Regex.Replace(text, @"^[áa]bre(?:me|te|s|lo)?\b", "open", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"^(?:pon(?:me|ga|gas|er)?|reproduc(?:e|ir|es))\b", "play", RegexOptions.IgnoreCase);
             return text;
         }
         private static readonly string[] MediaWords =
@@ -314,35 +328,35 @@ namespace CapriDesktop
             string lower = text.ToLowerInvariant();
             for (int i = 0; i < MediaWords.Length; i += 2)
                 if (Regex.IsMatch(lower, MediaWords[i])) { tool = "media"; args.Action = MediaWords[i + 1]; return true; }
-            Match found = Regex.Match(text, @"^(?:open|launch|start|go to|fire up|load up)\s+(spotify|youtube)\s*(?:,|and|&)?\s*(?:then\s+)?(?:play|shuffle|put on|blast)\s+(.+)$", RegexOptions.IgnoreCase);
+            Match found = Regex.Match(text, @"^(?:open|launch|start|go to|fire up|load up|[áa]bre(?:me)?|abrir|iniciar?)\s+(?:el\s+|la\s+)?(spotify|youtube)\s*(?:,|and|&|y)?\s*(?:then\s+|luego\s+)?(?:play|shuffle|put on|blast|pon(?:me|er)?|reproduc(?:ir|e)|busca(?:r|me)?)\s+(?:la\s+canci[óo]n\s+|el\s+tema\s+)?(.+)$", RegexOptions.IgnoreCase);
             if (found.Success) text = "play " + found.Groups[2].Value + " on " + found.Groups[1].Value;
-            if (Regex.IsMatch(text, @"\b(and|then|but)\s+(open|launch|play|close|quit|pause|don't|do not)\b", RegexOptions.IgnoreCase)) return false;
-            found = Regex.Match(text, @"^(open|launch|start|run|load up|boot up|fire up)\s+(up\s+)?(.+)$", RegexOptions.IgnoreCase);
+            if (Regex.IsMatch(text, @"\b(and|then|but|y|pero)\s+(open|launch|play|close|quit|pause|don't|do not|abre|abrir|pon|cierra)\b", RegexOptions.IgnoreCase)) return false;
+            found = Regex.Match(text, @"^(open|launch|start|run|load up|boot up|fire up|[áa]bre(?:me)?|abrir|iniciar?|ejecutar?)\s+(up\s+|el\s+|la\s+)?(.+)$", RegexOptions.IgnoreCase);
             if (found.Success)
             {
                 string target = found.Groups[3].Value.Trim();
-                if (Regex.IsMatch(target, @"\s(and|then|&)\s|,\s*\S", RegexOptions.IgnoreCase)) return false;
+                if (Regex.IsMatch(target, @"\s(and|then|&|y)\s|,\s*\S", RegexOptions.IgnoreCase)) return false;
                 if (Regex.IsMatch(target, @"^(your|ur|capri'?s|the capri)( own)? (web ?site|site|page|download page)$", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = Home; return true; }
                 if (Installed(target)) { tool = "open_app"; args.Name = target; return true; }
                 if (Site(target)) { tool = "open_website"; args.Site = target; return true; }
                 return false;
             }
-            found = Regex.Match(text, @"^(?:google|look up)\s+(.+)$", RegexOptions.IgnoreCase);
-            if (found.Success && !Regex.IsMatch(found.Groups[1].Value, @"^(it|this|that|something|stuff|for me)$", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = "google"; args.Search = found.Groups[1].Value.Trim(); return true; }
+            found = Regex.Match(text, @"^(?:google|look up|busca(?:r|me)?(?:\s+en\s+google)?)\s+(.+)$", RegexOptions.IgnoreCase);
+            if (found.Success && !Regex.IsMatch(found.Groups[1].Value, @"^(it|this|that|something|stuff|for me|eso|esto)$", RegexOptions.IgnoreCase) && !Regex.IsMatch(found.Groups[1].Value, @"\b(spotify|youtube)\b", RegexOptions.IgnoreCase)) { tool = "open_website"; args.Site = "google"; args.Search = found.Groups[1].Value.Trim(); return true; }
             if (Regex.IsMatch(text, LookupWords, RegexOptions.IgnoreCase) && !Regex.IsMatch(Regex.Replace(text, @"\bnear me\b", ""), @"\b(my|your|you|me|i)\b", RegexOptions.IgnoreCase) && Safety.Screen(text) == null) { tool = "open_website"; args.Site = "google"; args.Search = text; return true; }
-            found = Regex.Match(text, @"^(?:play|shuffle|put on|blast)\s+(.+?)(\s+on\s+(spotify|youtube))?$", RegexOptions.IgnoreCase);
+            found = Regex.Match(text, @"^(?:play|shuffle|put on|blast|pon(?:me|er)?|reproduc(?:ir|e)|busca(?:r|me)?\s+y\s+pon(?:me)?)\s+(?:la\s+canci[óo]n\s+(?:de\s+)?|el\s+tema\s+(?:de\s+)?|una\s+canci[óo]n\s+llamada\s+)?(.+?)(\s+(?:on|en)\s+(spotify|youtube))?$", RegexOptions.IgnoreCase);
             if (found.Success)
             {
                 string target = found.Groups[1].Value.Trim();
                 if (!found.Groups[3].Success && Installed(target)) { tool = "open_app"; args.Name = target; return true; }
-                if (Regex.IsMatch(target, @"^(with|along|around|a game|games?\b|dead|nice|fair|it\b|me\b|us\b|together|music$|some music$|((a|any|some|random) )?(song|track|music|playlist)s?$|(something|anything)\b(?!\s+by\s))", RegexOptions.IgnoreCase)) return false;
+                if (Regex.IsMatch(target, @"^(with|along|around|a game|games?\b|dead|nice|fair|it\b|me\b|us\b|together|music$|some music$|m[úu]sica$|algo de m[úu]sica$|((a|any|some|random|una|alguna) )?(song|track|music|playlist|canci[óo]n|tema)s?$|(something|anything|algo)\b(?!\s+(by|de)\s))", RegexOptions.IgnoreCase)) return false;
                 if (found.Groups[3].Success) args.App = found.Groups[3].Value.ToLowerInvariant();
-                Match kind = Regex.Match(target, @"^(?:(?:the|my|your)\s+)?(.+?)\s+(playlist|album)$", RegexOptions.IgnoreCase);
-                Match first = Regex.Match(target, @"^(?:the\s+)?(playlist|album)\s+(.+)$", RegexOptions.IgnoreCase);
-                Match by = Regex.Match(target, @"^(?:some(?:thing)?|anything|(?:(?:some|a|any)\s+)?(?:songs?|music|tracks?))\s+by\s+(.+)$", RegexOptions.IgnoreCase);
-                if (Regex.IsMatch(target, @"^((my|your|the)\s+)?((liked|saved)\s+songs|likes)(\s+playlist)?$", RegexOptions.IgnoreCase)) { args.Kind = "playlist"; args.Song = "Liked Songs"; }
-                else if (kind.Success) { args.Kind = kind.Groups[2].Value.ToLowerInvariant(); args.Song = kind.Groups[1].Value; }
-                else if (first.Success) { args.Kind = first.Groups[1].Value.ToLowerInvariant(); args.Song = first.Groups[2].Value; }
+                Match kind = Regex.Match(target, @"^(?:(?:the|my|your|la|mi|tu)\s+)?(.+?)\s+(playlist|album|[áa]lbum)$", RegexOptions.IgnoreCase);
+                Match first = Regex.Match(target, @"^(?:the\s+|la\s+|el\s+|mi\s+)?(playlist|album|[áa]lbum)\s+(?:de\s+)?(.+)$", RegexOptions.IgnoreCase);
+                Match by = Regex.Match(target, @"^(?:some(?:thing)?|anything|algo|(?:(?:some|a|any|unas?|algunas?)\s+)?(?:songs?|music|tracks?|canciones|temas|m[úu]sica))\s+(?:by|de)\s+(.+)$", RegexOptions.IgnoreCase);
+                if (Regex.IsMatch(target, @"^((my|your|the|mis|tus|las)\s+)?((liked|saved)\s+songs|likes|canciones que (me|te) gustan|me gusta)(\s+playlist)?$", RegexOptions.IgnoreCase)) { args.Kind = "playlist"; args.Song = "Liked Songs"; }
+                else if (kind.Success) { string k = kind.Groups[2].Value.ToLowerInvariant(); args.Kind = k == "álbum" ? "album" : k; args.Song = kind.Groups[1].Value; }
+                else if (first.Success) { string k = first.Groups[1].Value.ToLowerInvariant(); args.Kind = k == "álbum" ? "album" : k; args.Song = first.Groups[2].Value; }
                 else if (by.Success) { args.Kind = "artist"; args.Song = by.Groups[1].Value; }
                 else { args.Kind = "song"; args.Song = target; }
                 tool = "play_music";
@@ -744,17 +758,26 @@ namespace CapriDesktop
                 {
                     if (!string.Equals(window.Program, "Spotify", StringComparison.OrdinalIgnoreCase) || window.Handle == IntPtr.Zero) continue;
                     AutomationElement close = null;
+                    AutomationElement fallbackPlay = null;
                     int best = 0;
                     foreach (AutomationElement button in AutomationElement.FromHandle(window.Handle).FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
                     {
-                        int score = PlayScore(button.Current.Name, name);
-                        if (score <= best) continue;
-                        close = button;
-                        best = score;
-                        if (best == 3) break;
+                        string btnName = button.Current.Name ?? "";
+                        int score = PlayScore(btnName, name);
+                        if (score > best)
+                        {
+                            close = button;
+                            best = score;
+                            if (best == 3) break;
+                        }
+                        if (fallbackPlay == null && Regex.IsMatch(btnName, @"^(Play|Lire|Reproducir|Reproduir)\b", RegexOptions.IgnoreCase))
+                        {
+                            fallbackPlay = button;
+                        }
                     }
+                    AutomationElement chosen = close != null && (i >= 6 || best > 1) ? close : (i >= 8 ? fallbackPlay : null);
                     object pattern;
-                    if (close == null || (i < 6 && best == 1) || !close.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) continue;
+                    if (chosen == null || !chosen.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) continue;
                     ((InvokePattern)pattern).Invoke();
                     return true;
                 }
@@ -765,7 +788,7 @@ namespace CapriDesktop
 
         internal static int PlayScore(string label, string name)
         {
-            Match play = Regex.Match(label ?? "", @"^(?:Play|Lire)\s+(.+)$", RegexOptions.IgnoreCase);
+            Match play = Regex.Match(label ?? "", @"^(?:Play|Lire|Reproducir|Reproduir)\s+(.+)$", RegexOptions.IgnoreCase);
             if (!play.Success) return 0;
             string[] shown = Words(play.Groups[1].Value);
             string[] want = Words(name);
@@ -776,8 +799,8 @@ namespace CapriDesktop
 
         private static string[] Words(string text)
         {
-            string plain = Plain(Regex.Replace(text ?? "", @"\s+(by|par)\s+.*$", "", RegexOptions.IgnoreCase));
-            return (plain == "titres likes" ? "liked songs" : plain).Split(' ');
+            string plain = Plain(Regex.Replace(text ?? "", @"\s+(by|par|de|per)\s+.*$", "", RegexOptions.IgnoreCase));
+            return (plain == "titres likes" || plain == "canciones que te gustan" ? "liked songs" : plain).Split(' ');
         }
 
         private static bool Within(string[] part, string[] whole)
@@ -895,7 +918,7 @@ namespace CapriDesktop
                 }
                 StringBuilder title = new StringBuilder(length + 1);
                 GetWindowText(window, title, title.Capacity);
-                found.Add(new OpenWindow(window, title.ToString(), program));
+                found.Add(new OpenWindow(window, title.ToString(), program, IsIconic(window)));
                 return true;
             };
             EnumWindows(visit, IntPtr.Zero);

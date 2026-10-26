@@ -255,20 +255,24 @@ namespace CapriDesktop
         internal event Action Typing;
         internal event Action Voice;
         internal event Action Mute;
+        internal event Action Seeing;
         private int hover;
         private float scale = 1;
         private Point centre;
         private bool chatting;
         private bool muted;
+        private bool seeing;
         private int level;
 
         internal TalkPill() : base("Talk to Capri") { Cursor = Look.Pointer; }
 
-        internal static Size Measure(float scale) { return new Size((int)Math.Round(100 * scale), (int)Math.Round(40 * scale)); }
+        internal static Size Measure(float scale) { return new Size((int)Math.Round(144 * scale), (int)Math.Round(40 * scale)); }
 
         internal bool Chatting { get { return chatting; } }
 
         internal bool Muted { get { return muted; } }
+
+        internal bool IsSeeing { get { return seeing; } }
 
         internal void Place(Point topCentre, float value)
         {
@@ -287,6 +291,13 @@ namespace CapriDesktop
             if (Visible) Redraw();
         }
 
+        internal void SetSeeing(bool on)
+        {
+            if (on == seeing) return;
+            seeing = on;
+            if (Visible) Redraw();
+        }
+
         internal void SetLevel(double value)
         {
             int step = chatting && !muted ? Math.Min(6, (int)(Math.Sqrt(value) * 24)) : 0;
@@ -297,11 +308,11 @@ namespace CapriDesktop
 
         private void Redraw()
         {
-            Bitmap image = Render(scale, hover, chatting, muted, level);
+            Bitmap image = Render(scale, hover, chatting, muted, level, seeing);
             Present(image, new Point(centre.X - Measure(scale).Width / 2, centre.Y));
         }
 
-        internal static Bitmap Render(float s, int hover, bool chatting = false, bool muted = false, int level = 0)
+        internal static Bitmap Render(float s, int hover, bool chatting = false, bool muted = false, int level = 0, bool seeing = false)
         {
             Size size = Measure(s);
             Bitmap image = new Bitmap(chatting ? size.Width + (int)Math.Round(4 * s) + size.Height : size.Width, size.Height, PixelFormat.Format32bppPArgb);
@@ -324,18 +335,30 @@ namespace CapriDesktop
                     }
                     DrawMic(graphics, spot, s, hover == 3 ? Look.Cyan : Look.Ink, muted);
                 }
-                float middle = pill.X + pill.Width / 2;
-                using (Pen divider = new Pen(Color.FromArgb(70, 73, 82), 1.2f * s)) graphics.DrawLine(divider, middle, pill.Y + pill.Height * 0.27f, middle, pill.Bottom - pill.Height * 0.27f);
-                PointF pencil = new PointF(pill.X + pill.Width * 0.26f, pill.Y + pill.Height / 2);
-                PointF wave = new PointF(pill.X + pill.Width * 0.74f, pill.Y + pill.Height / 2);
-                if (hover == 1 || hover == 2)
+                float cut1 = pill.X + pill.Width / 3f;
+                float cut2 = pill.X + pill.Width * 2f / 3f;
+                using (Pen divider = new Pen(Color.FromArgb(70, 73, 82), 1.2f * s))
                 {
-                    PointF lit = hover == 1 ? pencil : wave;
+                    graphics.DrawLine(divider, cut1, pill.Y + pill.Height * 0.27f, cut1, pill.Bottom - pill.Height * 0.27f);
+                    graphics.DrawLine(divider, cut2, pill.Y + pill.Height * 0.27f, cut2, pill.Bottom - pill.Height * 0.27f);
+                }
+                PointF pencil = new PointF(pill.X + pill.Width * 0.175f, pill.Y + pill.Height / 2);
+                PointF wave = new PointF(pill.X + pill.Width * 0.50f, pill.Y + pill.Height / 2);
+                PointF eye = new PointF(pill.X + pill.Width * 0.825f, pill.Y + pill.Height / 2);
+                if (hover == 1 || hover == 2 || hover == 4)
+                {
+                    PointF lit = hover == 1 ? pencil : hover == 2 ? wave : eye;
                     float radius = pill.Height * 0.4f;
                     using (Brush glow = new SolidBrush(Color.FromArgb(30, 255, 255, 255))) graphics.FillEllipse(glow, lit.X - radius, lit.Y - radius, radius * 2, radius * 2);
                 }
+                if (seeing && hover != 4)
+                {
+                    float radius = pill.Height * 0.36f;
+                    using (Brush glow = new SolidBrush(Color.FromArgb(26, Look.Cyan))) graphics.FillEllipse(glow, eye.X - radius, eye.Y - radius, radius * 2, radius * 2);
+                }
                 DrawPencil(graphics, pencil, s, hover == 1 ? Look.Cyan : Look.Ink);
                 DrawWave(graphics, wave, s, hover == 2 || chatting ? Look.Cyan : Look.Ink, chatting ? 0.45f + level * 0.14f : 1);
+                DrawEye(graphics, eye, s, hover == 4 || seeing ? Look.Cyan : Look.Ink, seeing);
             }
             return image;
         }
@@ -410,11 +433,37 @@ namespace CapriDesktop
             }
         }
 
+        private static void DrawEye(Graphics graphics, PointF centre, float s, Color colour, bool active)
+        {
+            float w = 8.5f * s;
+            float h = 5.2f * s;
+            using (GraphicsPath lid = new GraphicsPath())
+            {
+                lid.AddBezier(centre.X - w, centre.Y, centre.X - w * 0.45f, centre.Y - h * 1.35f, centre.X + w * 0.45f, centre.Y - h * 1.35f, centre.X + w, centre.Y);
+                lid.AddBezier(centre.X + w, centre.Y, centre.X + w * 0.45f, centre.Y + h * 1.35f, centre.X - w * 0.45f, centre.Y + h * 1.35f, centre.X - w, centre.Y);
+                lid.CloseFigure();
+                using (Pen outline = new Pen(colour, 1.8f * s))
+                {
+                    outline.LineJoin = LineJoin.Round;
+                    graphics.DrawPath(outline, lid);
+                }
+            }
+            float r = (active ? 3.1f : 2.5f) * s;
+            using (Brush iris = new SolidBrush(colour)) graphics.FillEllipse(iris, centre.X - r, centre.Y - r, r * 2, r * 2);
+            if (active)
+            {
+                float dot = 1.0f * s;
+                using (Brush shine = new SolidBrush(Color.FromArgb(20, 21, 25))) graphics.FillEllipse(shine, centre.X - dot * 0.4f, centre.Y - dot * 0.4f, dot * 1.3f, dot * 1.3f);
+            }
+        }
+
         private int PartAt(int x)
         {
             int wide = Measure(scale).Width;
             if (chatting && x >= wide) return 3;
-            return x < wide / 2 ? 1 : 2;
+            if (x < wide / 3) return 1;
+            if (x < wide * 2 / 3) return 2;
+            return 4;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -440,6 +489,7 @@ namespace CapriDesktop
         {
             if (part == 1) { if (Typing != null) Typing(); }
             else if (part == 3) { if (Mute != null) Mute(); }
+            else if (part == 4) { if (Seeing != null) Seeing(); }
             else if (Voice != null) Voice();
         }
     }
@@ -451,6 +501,7 @@ namespace CapriDesktop
         internal string Heard;
         internal string Prompt = "> you: ";
         internal string Reply;
+        internal bool Alert;
         internal int Revealed;
         internal double Opened = -1;
         internal double Leaving = -1;
@@ -462,6 +513,7 @@ namespace CapriDesktop
         private string lastHeard;
         private string lastPrompt;
         private string lastReply;
+        private bool lastAlert;
         private int lastRevealed;
         private float lastScale;
         private Point lastHead;
@@ -492,7 +544,7 @@ namespace CapriDesktop
             if (Leaving >= 0) glitch = (float)Math.Min(1, (now - Leaving) / 0.25 + 0.3);
             bool cursor = State == TalkState.Thinking || State == TalkState.Talking ? (State == TalkState.Talking || (int)(now * 2.5) % 2 == 0) : (int)(now * 2) % 2 == 0;
             int revealed = State == TalkState.Thinking || Reply == null ? 0 : Math.Min(Reply.Length, Math.Max(0, Revealed));
-            if (glitch == 0 && clean && Visible && Image != null && cursor == lastCursor && State == lastState && Heard == lastHeard && Prompt == lastPrompt && Reply == lastReply && revealed == lastRevealed && s == lastScale && head == lastHead && feet == lastFeet && area == lastArea) return;
+            if (glitch == 0 && clean && Visible && Image != null && cursor == lastCursor && State == lastState && Heard == lastHeard && Prompt == lastPrompt && Reply == lastReply && Alert == lastAlert && revealed == lastRevealed && s == lastScale && head == lastHead && feet == lastFeet && area == lastArea) return;
             Point at;
             Bitmap image = Render(s, head, feet, area, cursor, out at);
             if (glitch > 0)
@@ -508,6 +560,7 @@ namespace CapriDesktop
             lastHeard = Heard;
             lastPrompt = Prompt;
             lastReply = Reply;
+            lastAlert = Alert;
             lastRevealed = revealed;
             lastScale = s;
             lastHead = head;
@@ -517,54 +570,58 @@ namespace CapriDesktop
 
         private Bitmap Render(float s, Point head, Point feet, Rectangle area, bool cursorOn, out Point at)
         {
-            using (Font text = Look.Mono(14 * s, FontStyle.Regular))
-            using (Font heard = Look.Mono(14 * s, FontStyle.Italic))
-            using (Font bold = Look.Mono(14 * s, FontStyle.Bold))
+            float fontScale = Alert ? 18.5f * s : 14f * s;
+            using (Font text = Look.Mono(fontScale, Alert ? FontStyle.Bold : FontStyle.Regular))
+            using (Font heard = Look.Mono(Alert ? 15f * s : 14f * s, FontStyle.Italic))
+            using (Font bold = Look.Mono(fontScale, FontStyle.Bold))
             {
                 float cw = Look.CharWidth(text);
-                float line = 19 * s;
+                float line = (Alert ? 25f : 19f) * s;
                 float margin = 12 * s;
                 float top = 10 * s;
                 float tail = 16 * s;
-                List<string> lines = Look.Wrap(Speaker + (Reply ?? ""), Columns);
-                float panelWidth = 24 * s + Columns * cw + 14 * s;
-                float panelHeight = 13 * s + line * (1 + lines.Count) + 10 * s;
+                int cols = Alert ? 44 : ((Reply ?? "").Length > 180 ? 46 : Columns);
+                List<string> lines = Look.Wrap(Speaker + (Reply ?? ""), cols);
+                float panelWidth = 24 * s + cols * cw + 14 * s;
+                float panelHeight = (Alert ? 16f : 13f) * s + line * (1 + lines.Count) + (Alert ? 14f : 10f) * s;
                 int width = (int)Math.Ceiling(panelWidth + margin * 2);
                 int height = (int)Math.Ceiling(top + panelHeight + tail + 4 * s);
                 bool below = head.Y - height < area.Top;
                 Point tip = below ? feet : head;
                 int left = Math.Max(area.Left, Math.Min(area.Right - width, (int)(tip.X - margin - panelWidth * 0.7f)));
-                int y = below ? tip.Y : tip.Y - height;
+                int y = below ? Math.Min(area.Bottom - height, tip.Y) : Math.Max(area.Top, tip.Y - height);
                 at = new Point(left, y);
                 RectangleF panel = new RectangleF(margin, below ? tail + 4 * s : top, panelWidth, panelHeight);
                 panelOnScreen = new Rectangle(left + (int)panel.X, y + (int)panel.Y, (int)panel.Width, (int)panel.Height);
                 float tipX = Math.Max(panel.Left + 32 * s, Math.Min(panel.Right - 10 * s, tip.X - left));
                 float tipY = below ? 0 : height - 1;
                 Bitmap image = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
+                Color borderColor = Alert ? Look.Red : Look.Cyan;
+                Color textColor = Alert ? Look.Yellow : Look.Neon;
                 using (Graphics graphics = Graphics.FromImage(image))
                 using (GraphicsPath path = Look.Plate(panel, 10 * s, tipX, tipY, 18 * s))
                 {
                     graphics.SmoothingMode = SmoothingMode.AntiAlias;
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-                    using (Pen glow = new Pen(Color.FromArgb(46, Look.Cyan), 7 * s)) graphics.DrawPath(glow, path);
-                    using (Brush fill = new SolidBrush(Color.FromArgb(238, Look.Panel))) graphics.FillPath(fill, path);
+                    using (Pen glow = new Pen(Color.FromArgb(Alert ? 90 : 46, borderColor), (Alert ? 10 : 7) * s)) graphics.DrawPath(glow, path);
+                    using (Brush fill = new SolidBrush(Color.FromArgb(245, Look.Panel))) graphics.FillPath(fill, path);
                     graphics.SetClip(path);
                     using (Pen scan = new Pen(Color.FromArgb(9, 255, 255, 255), Math.Max(1, s)))
                         for (float row = panel.Top; row < panel.Bottom; row += 3 * s) graphics.DrawLine(scan, panel.Left, row, panel.Right, row);
                     graphics.ResetClip();
-                    using (Pen edge = new Pen(Look.Cyan, 2 * s)) graphics.DrawPath(edge, path);
-                    using (Brush red = new SolidBrush(Look.Red)) graphics.FillRectangle(red, panel.Left + 10 * s, panel.Top + 13 * s, 3 * s, panel.Height - 26 * s);
+                    using (Pen edge = new Pen(borderColor, (Alert ? 3 : 2) * s)) graphics.DrawPath(edge, path);
+                    using (Brush red = new SolidBrush(Look.Red)) graphics.FillRectangle(red, panel.Left + 10 * s, panel.Top + 13 * s, (Alert ? 4.5f : 3f) * s, panel.Height - 26 * s);
                     float x = panel.Left + 24 * s;
                     float row2 = panel.Top + 12 * s;
                     string you = Prompt + (Heard ?? "");
-                    if (you.Length > Columns) you = you.Substring(0, Columns - 3) + "...";
-                    using (Brush dim = new SolidBrush(Look.Dim)) graphics.DrawString(you, heard, dim, x, row2, StringFormat.GenericTypographic);
+                    if (you.Length > cols) you = you.Substring(0, cols - 3) + "...";
+                    using (Brush dim = new SolidBrush(Alert ? Look.Red : Look.Dim)) graphics.DrawString(you, heard, dim, x, row2, StringFormat.GenericTypographic);
                     row2 += line;
                     int remaining = Speaker.Length + (State == TalkState.Thinking ? (Reply ?? "").Length : Math.Max(0, Revealed));
                     PointF caret = new PointF(x, row2);
                     using (Brush red = new SolidBrush(Look.Red))
-                    using (Brush ink = new SolidBrush(Look.Neon))
+                    using (Brush ink = new SolidBrush(textColor))
                     {
                         for (int i = 0; i < lines.Count && remaining > 0; i++)
                         {
@@ -719,6 +776,79 @@ namespace CapriDesktop
             using (Pen cyan = new Pen(Look.Cyan, 2 * s))
                 e.Graphics.DrawPath(cyan, edge);
             using (Brush red = new SolidBrush(Look.Red)) e.Graphics.FillRectangle(red, 10 * s, 10 * s, 3 * s, Height - 20 * s);
+        }
+    }
+
+    internal sealed class GlitchScreen : Overlay
+    {
+        private readonly Random random = new Random();
+        private int tickCount;
+
+        internal GlitchScreen() : base("Capri Glitch") { Above = true; }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams value = base.CreateParams;
+                value.ExStyle |= 0x00000020;
+                return value;
+            }
+        }
+
+        internal void Step(Rectangle screen, Point cursor, bool active)
+        {
+            if (!active)
+            {
+                if (Visible) Hide();
+                return;
+            }
+            tickCount++;
+            float scale;
+            using (Graphics g = Graphics.FromHwnd(IntPtr.Zero)) scale = Math.Max(1f, g.DpiX / 96f);
+            int w = screen.Width;
+            int h = screen.Height;
+            Bitmap image = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+            using (Graphics g = Graphics.FromImage(image))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                int border = (int)Math.Round((6 + (tickCount % 3) * 3) * scale);
+                using (Pen redEdge = new Pen(Color.FromArgb(150, Look.Red), border))
+                    g.DrawRectangle(redEdge, border / 2, border / 2, w - border, h - border);
+                using (Pen cyanEdge = new Pen(Color.FromArgb(110, Look.Cyan), Math.Max(2, border / 2)))
+                    g.DrawRectangle(cyanEdge, border + 2, border + 2, w - (border + 2) * 2, h - (border + 2) * 2);
+
+                int slices = 5 + random.Next(6);
+                for (int i = 0; i < slices; i++)
+                {
+                    int sliceY = random.Next(h);
+                    int sliceH = (int)((3 + random.Next(18)) * scale);
+                    int sliceW = (int)((120 + random.Next(Math.Max(200, w / 2))) * scale);
+                    int sliceX = random.Next(Math.Max(1, w - sliceW / 2));
+                    Color col = i % 3 == 0 ? Look.Pink : i % 3 == 1 ? Look.Cyan : Look.Red;
+                    int alpha = 35 + random.Next(55);
+                    using (Brush b = new SolidBrush(Color.FromArgb(alpha, col)))
+                        g.FillRectangle(b, sliceX, sliceY, sliceW, sliceH);
+                }
+
+                for (int y = (tickCount * 7) % 24; y < h; y += 24)
+                {
+                    using (Pen scan = new Pen(Color.FromArgb(14, Look.Red), 1f))
+                        g.DrawLine(scan, 0, y, w, y);
+                }
+
+                int pointerSize = (int)Math.Round(56 * scale);
+                int px = cursor.X - screen.Left - (int)Math.Round(4 * scale);
+                int py = cursor.Y - screen.Top - (int)Math.Round(4 * scale);
+                using (Brush ring = new SolidBrush(Color.FromArgb(65, Look.Pink)))
+                    g.FillEllipse(ring, px - 14 * scale, py - 14 * scale, 36 * scale, 36 * scale);
+                using (Pen cross = new Pen(Color.FromArgb(180, Look.Cyan), 1.8f * scale))
+                    g.DrawEllipse(cross, px - 10 * scale, py - 10 * scale, 28 * scale, 28 * scale);
+                using (Bitmap ptr = Look.PointerArt(pointerSize))
+                    g.DrawImage(ptr, px, py, pointerSize, pointerSize);
+            }
+            Present(image, screen.Location);
+            Native.SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
         }
     }
 }

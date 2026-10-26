@@ -80,6 +80,8 @@ namespace CapriDesktop
         [DataMember] public bool Quiet;
         [DataMember] public bool Wander;
         [DataMember] public bool FreeVoice;
+        [DataMember] public bool LiveSight;
+        [DataMember] public bool DoomScroll;
     }
 
     [DataContract]
@@ -450,6 +452,7 @@ namespace CapriDesktop
         private readonly TalkPill pill = new TalkPill();
         private readonly SpeechBox box = new SpeechBox();
         private readonly TypeBox typer = new TypeBox();
+        private readonly GlitchScreen glitchFx = new GlitchScreen();
         private readonly Mainframe mainframe;
         private readonly Engine engine;
         private Machine machine;
@@ -493,13 +496,18 @@ namespace CapriDesktop
         private double voiceUntil;
         private bool spoke;
         private bool checkedIn;
-        private const string GlanceLine = "(You glance at their screen while they do their thing. React in one short line, in character, to something specific you can see: tease them, cheer them on, or ask about it. A game scene, scoreboard, inventory or quiet moment is enough. Don't invent action from a still image, and never guess who a person is; name someone only if their name is written on screen. For a blank screen, a bare desktop or a loading screen, reply with just SKIP.)";
+        private const string GlanceLine = "Look at this full-screen screenshot of what the user is doing right now. Give one short, encouraging, helpful or witty comment in character specifically about what is visible on their screen (the app, code, video, game, or task shown). Output ONLY your comment, never repeat these instructions.";
+        private const string GlanceSystem = "\nYou are looking at a real-time full-screen screenshot of the user's computer. React in one short line, in character, to something specific you can actually see on their screen: cheer them on, tease them, or comment on their current task, app, code, or game. Never repeat the user prompt, never output bracketed tags like [Active window:...], and never invent off-screen topics. For a completely blank or black screen, reply with just SKIP.";
+        private const string DoomLine = "Inspect this screenshot carefully. Is the user currently watching or browsing YouTube Shorts, Instagram Reels, or TikTok (for example: a vertical 9:16 short-form video player in the center of the screen with Like/Dislike/Comments/Share/Remix icons stacked vertically on the right, or a 'Shorts' / 'Reels' feed)? If YES, scold them in English in character (1 or 2 energetic sentences): tell them to stop doomscrolling right now, that you're taking their mouse and closing that tab for them, and to get back to working or doing what they were doing! If NO (they are doing anything else, coding, working, or even watching a normal horizontal video), reply with ONLY the exact word: SKIP";
+        private const string DoomSystem = "\nYou are Capri's DoomScroll Detector. You silently monitor the user's screen ONLY to catch them doomscrolling on YouTube Shorts, Reels, or TikTok. If and ONLY if you clearly see YouTube Shorts, Reels, or TikTok open on their screen, call them out in English in character and tell them to stop doomscrolling, that you're closing that tab, and to get back to work/what they were doing. If they are NOT on Shorts/Reels/TikTok, you MUST output ONLY the single word SKIP and nothing else.";
         private const string BlackScreen = "The screen capture is black. Try borderless or windowed mode.";
         internal static Func<Rectangle, Bitmap> Grab = GrabScreen;
         internal static Func<IntPtr, Rectangle> Display = delegate(IntPtr window) { return window == IntPtr.Zero ? Screen.FromPoint(Cursor.Position).Bounds : Screen.FromHandle(window).Bounds; };
         private double nextGlance = -1;
         private double lastGlance = -1;
+        private double nextDoom = -1;
         private int watchTicket;
+        private int doomTicket;
         private bool glancing;
         private byte[] lastPrint;
         private Rectangle lastArea;
@@ -624,7 +632,7 @@ namespace CapriDesktop
             Hands.Work = RunJob;
             Hands.Resume = ResumeJob;
             string textKey = Voice.Unprotect(preferences.TextKey);
-            if (!preferences.NvidiaGlm)
+            if (!preferences.NvidiaGlm || preferences.TextModel == "meta/llama-3.2-11b-vision-instruct" || preferences.TextModel == "meta/llama-3.2-90b-vision-instruct")
             {
                 if (textKey != null && Cloud.KindOf(textKey) == "nvidia") preferences.TextModel = Brain.NvidiaDefault;
                 preferences.NvidiaGlm = true;
@@ -639,6 +647,8 @@ namespace CapriDesktop
             pill.Typing += OpenTyper;
             pill.Voice += ToggleChat;
             pill.Mute += ToggleMic;
+            pill.Seeing += ToggleSeeing;
+            pill.SetSeeing(preferences.LiveSight);
             ears.Heard += Listen;
             ears.Level += delegate(double value) { Post(delegate { pill.SetLevel(local && (earsShut || transcribing || noiseHold || !earsReady) ? 0 : value); }); };
             box.Dismissed += delegate { if (box.Leaving < 0) box.Leaving = clock.Elapsed.TotalSeconds; };
@@ -653,6 +663,7 @@ namespace CapriDesktop
             {
                 if (restore.WaitOne(0)) { RestoreAtCursor(); mainframe.Restore(); }
                 if (!testing) CheckIdle(Native.IdleMilliseconds());
+                if (!testing) CheckDoomScroll(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
                 if (!testing) CheckGlance(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
                 if (!testing) CheckWander(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
                 StayOnTop();
@@ -1130,7 +1141,7 @@ namespace CapriDesktop
         private System.Collections.Generic.List<IntPtr> Skip()
         {
             System.Collections.Generic.List<IntPtr> skip = new System.Collections.Generic.List<IntPtr>();
-            foreach (Form own in new Form[] { this, pill, box, typer, mainframe }) if (own.IsHandleCreated) skip.Add(own.Handle);
+            foreach (Form own in new Form[] { this, pill, box, typer, mainframe, glitchFx }) if (own.IsHandleCreated) skip.Add(own.Handle);
             return skip;
         }
 
@@ -1381,6 +1392,7 @@ namespace CapriDesktop
         internal int CharacterSize { get { return preferences.Size; } }
         internal bool Motion { get { return preferences.Motion; } }
         internal bool Watching { get { return preferences.Watch; } }
+        internal bool DoomScrolling { get { return preferences.DoomScroll; } }
         internal bool Speaking { get { return !preferences.Quiet; } }
 
         internal void ToggleSpeaking()
@@ -1427,12 +1439,51 @@ namespace CapriDesktop
             tray.ShowBalloonTip(15000, "Capri is replying slowly", "Her brain runs on your PC, and open games share that power. For fast replies, click here, make a free NVIDIA key, then paste it in Capri Mainframe under BRAIN and press Connect.", ToolTipIcon.Info);
         }
 
+        internal bool LiveSeeing { get { return preferences.LiveSight; } }
+
+        private bool EnsureVisionModel()
+        {
+            Cloud remote = brain.Remote;
+            if (remote == null || remote.Kind != "nvidia") return false;
+            if (Brain.HasNvidiaVision(remote.Model) && remote.Model != brain.Unsighted && remote.Model != "meta/llama-3.2-11b-vision-instruct" && remote.Model != "meta/llama-3.2-90b-vision-instruct") return true;
+            string next = Brain.NextVision(remote.Model, cloudModels, stalled);
+            if (next == null) return false;
+            string old = remote.Model;
+            ChooseModel(next, true);
+            mainframe.ShowCloud(brain.Remote, cloudModels);
+            mainframe.ShowProblem("Switched to " + next.Substring(next.IndexOf('/') + 1) + " for screen vision.");
+            return true;
+        }
+
+        internal void ToggleSeeing()
+        {
+            preferences.LiveSight = !preferences.LiveSight;
+            pill.SetSeeing(preferences.LiveSight);
+            pillUntil = clock.Elapsed.TotalSeconds + 2.0;
+            SavePreferences();
+            if (!preferences.LiveSight)
+            {
+                Tell("live vision", "Optics offline. I'll stop looking at your screen unless you ask me to.");
+                return;
+            }
+            EnsureVisionModel();
+            string blind = Unseeing();
+            if (blind != null)
+            {
+                mainframe.ShowProblem(blind.Length > 60 ? blind.Substring(0, 57) + "..." : blind);
+                Tell("live vision", blind);
+                return;
+            }
+            Tell("live vision", "Optics locked on your screen, choom! Ask me anything about what you're doing and I'll help you out in real time.");
+            if (!typer.Visible && !chatting) OpenTyper();
+        }
+
         internal int GlanceGap { get { return preferences.GlanceGap > 0 ? preferences.GlanceGap : 120; } }
 
         internal void SetGlanceGap(int seconds)
         {
             preferences.GlanceGap = seconds;
-            if (preferences.Watch) nextGlance = clock.Elapsed.TotalSeconds + Math.Min(20, seconds);
+            if (preferences.Watch) nextGlance = clock.Elapsed.TotalSeconds + seconds;
             SavePreferences();
             mainframe.Sync();
         }
@@ -1441,16 +1492,37 @@ namespace CapriDesktop
         {
             preferences.Watch = !preferences.Watch;
             watchTicket++;
-            nextGlance = -1;
+            nextGlance = preferences.Watch ? clock.Elapsed.TotalSeconds + GlanceGap : -1;
             lastGlance = -1;
             lastPrint = null;
             SavePreferences();
             mainframe.Sync();
             if (!preferences.Watch) return;
+            EnsureVisionModel();
             Cloud remote = brain.Remote;
             Engine local = brain.Local;
             Pick pick = brain.LocalPick;
             if (remote != null && remote.Kind == "deepseek") mainframe.ShowProblem("DeepSeek can't see. Use an NVIDIA key to watch.");
+            else if (remote == null && local != null && pick != null)
+            {
+                if (pick.EyesFile == null) mainframe.ShowProblem("This brain can't see. Press Free key to fix.");
+                else if (!local.HasEyes(pick)) FetchEyes(local, pick);
+            }
+        }
+
+        internal void ToggleDoomScroll()
+        {
+            preferences.DoomScroll = !preferences.DoomScroll;
+            doomTicket++;
+            nextDoom = preferences.DoomScroll ? clock.Elapsed.TotalSeconds + 5 : -1;
+            SavePreferences();
+            mainframe.Sync();
+            if (!preferences.DoomScroll) return;
+            EnsureVisionModel();
+            Cloud remote = brain.Remote;
+            Engine local = brain.Local;
+            Pick pick = brain.LocalPick;
+            if (remote != null && remote.Kind == "deepseek") mainframe.ShowProblem("DeepSeek can't see. Use an NVIDIA key.");
             else if (remote == null && local != null && pick != null)
             {
                 if (pick.EyesFile == null) mainframe.ShowProblem("This brain can't see. Press Free key to fix.");
@@ -1486,11 +1558,71 @@ namespace CapriDesktop
             });
         }
 
+        private static IntPtr FrontUserWindow()
+        {
+            IntPtr fg = Native.GetForegroundWindow();
+            if (fg != IntPtr.Zero && Control.FromHandle(fg) == null) return fg;
+            try
+            {
+                foreach (OpenWindow w in Hands.Windows())
+                    if (!w.Minimized && w.Handle != IntPtr.Zero) return w.Handle;
+            }
+            catch (Exception) { }
+            return IntPtr.Zero;
+        }
+
+        private static string ScreenContext()
+        {
+            System.Collections.Generic.List<string> parts = new System.Collections.Generic.List<string>();
+            try
+            {
+                IntPtr fg = Native.GetForegroundWindow();
+                string fgTitle = fg != IntPtr.Zero && Control.FromHandle(fg) == null ? Native.WindowTitle(fg) : null;
+                System.Collections.Generic.List<OpenWindow> visible = new System.Collections.Generic.List<OpenWindow>();
+                foreach (OpenWindow w in Hands.Windows())
+                    if (!w.Minimized && !string.IsNullOrWhiteSpace(w.Title)) visible.Add(w);
+                if (visible.Count > 0)
+                {
+                    OpenWindow top = visible[0];
+                    if (fg != IntPtr.Zero && Control.FromHandle(fg) == null)
+                    {
+                        foreach (OpenWindow w in visible) if (w.Handle == fg) { top = w; break; }
+                    }
+                    parts.Add("Active window on screen: Program=\"" + top.Program + "\", Title=\"" + top.Title.Trim() + "\"");
+                    System.Collections.Generic.List<string> others = new System.Collections.Generic.List<string>();
+                    foreach (OpenWindow w in visible)
+                    {
+                        if (w.Handle == top.Handle) continue;
+                        others.Add(w.Program + " (\"" + (w.Title.Length > 45 ? w.Title.Substring(0, 42) + "..." : w.Title) + "\")");
+                        if (others.Count >= 3) break;
+                    }
+                    if (others.Count > 0) parts.Add("Other visible windows: " + string.Join(", ", others.ToArray()));
+                }
+                else if (!string.IsNullOrWhiteSpace(fgTitle))
+                {
+                    parts.Add("Active window on screen: \"" + fgTitle.Trim() + "\"");
+                }
+                string spotify = Hands.NowPlaying();
+                if (!string.IsNullOrWhiteSpace(spotify))
+                {
+                    if (spotify.IndexOf(" - ", StringComparison.Ordinal) > 0 && !Regex.IsMatch(spotify, @"^Spotify(?:$|\s)| - Spotify(?:$|\s)", RegexOptions.IgnoreCase))
+                        parts.Add("Spotify status: playing \"" + spotify + "\"");
+                    else
+                        parts.Add("Spotify status: open (\"" + spotify + "\")");
+                }
+            }
+            catch (Exception) { }
+            return string.Join(" | ", parts.ToArray());
+        }
+
         private string LookAt(string focus)
         {
+            if (InvokeRequired) Invoke(new Action( delegate { EnsureVisionModel(); }));
+            else EnsureVisionModel();
             string blind = Unseeing();
             if (blind != null) return blind;
             byte[] shot;
+            string context = ScreenContext();
             using (Bitmap screen = InvokeRequired ? (Bitmap)Invoke(new Func<Bitmap>(CaptureScreen)) : CaptureScreen())
             {
                 if (screen == null) return BlackScreen;
@@ -1499,63 +1631,168 @@ namespace CapriDesktop
             string seen;
             try
             {
-                seen = brain.See(shot, "You describe screenshots accurately and briefly.", "Describe what's on this screen in two or three plain sentences: what kind of game or app it is (name it only if the name is on screen), what's happening, and any text or numbers that matter. Don't guess who a person is from their face; name someone only if their name is written on screen." + (string.IsNullOrWhiteSpace(focus) ? "" : " Pay attention to: " + focus.Trim()), 160);
+                string sys = "You describe screenshots accurately and briefly using both the visual image and the ground-truth OS window info. Never guess a video game unless a game is actually open.";
+                string prompt = "Describe what is on this screen in two or three plain sentences" + (!string.IsNullOrWhiteSpace(context) ? " [OS Window Info: " + context + "]" : "") + ": what app, music player, site, or program is open, what is shown on screen, and any song, text, or details that matter." + (string.IsNullOrWhiteSpace(focus) ? "" : " Pay attention to: " + focus.Trim());
+                seen = brain.See(shot, sys, prompt, 180);
             }
-            catch (BrainException)
+            catch (Exception)
             {
+                if (!string.IsNullOrWhiteSpace(context)) return "You looked at their screen (" + context + ").";
                 string unseen = Unseeing();
                 if (unseen == null) throw;
                 return unseen;
             }
-            return seen.Length == 0 ? "You looked but couldn't make out their screen." : "You looked at their screen. You see: " + seen;
+            return seen.Length == 0
+                ? (!string.IsNullOrWhiteSpace(context) ? "You looked at their screen (" + context + ")." : "You looked but couldn't make out their screen.")
+                : "You looked at their screen" + (!string.IsNullOrWhiteSpace(context) ? " (" + context + ")" : "") + ". You see: " + seen;
+        }
+
+        private void CheckDoomScroll(double now, long quiet)
+        {
+            if (!preferences.DoomScroll || glancing) return;
+            int doomGap = Math.Min(15, GlanceGap);
+            if (nextDoom < 0) nextDoom = now + doomGap;
+            if (now < nextDoom || quiet > 600000 || brain.Model == null || hidden || chatting || dragging || typer.Visible) return;
+            if (talkState != TalkState.Off && (talkState == TalkState.Thinking || replyDone < 0 || now - replyDone < 6)) return;
+            EnsureVisionModel();
+            if (Unseeing() != null) return;
+            nextDoom = now + doomGap;
+            byte[] shot;
+            string activeTitle = null;
+            try
+            {
+                IntPtr fg = Native.GetForegroundWindow();
+                if (fg != IntPtr.Zero && Control.FromHandle(fg) == null) activeTitle = Native.WindowTitle(fg);
+                using (Bitmap screen = CaptureScreen())
+                {
+                    if (screen == null) return;
+                    shot = Jpeg(screen, 1280);
+                }
+            }
+            catch (Exception) { return; }
+            glancing = true;
+            int ticket = asking;
+            int doom = doomTicket;
+            bool titleHint = !string.IsNullOrWhiteSpace(activeTitle) && System.Text.RegularExpressions.Regex.IsMatch(activeTitle, @"(shorts|reels|tiktok)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            string sysPrompt = Brain.Persona + DoomSystem + (!string.IsNullOrWhiteSpace(activeTitle) ? "\n(Context: the user's focused window title is \"" + activeTitle.Trim() + "\"." + (titleHint ? " The window title explicitly mentions Shorts/Reels/TikTok!" : "") + ")" : "");
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string said = null;
+                bool stuck = false;
+                try { said = GlanceReply(brain.See(shot, sysPrompt, DoomLine, 140)); }
+                catch (Exception error) { stuck = Brain.Stalled(error); }
+                Post(delegate { FinishDoomScroll(ticket, doom, said, stuck); });
+            });
+        }
+
+        private void FinishDoomScroll(int ticket, int doom, string said, bool stuck = false)
+        {
+            glancing = false;
+            if (!preferences.DoomScroll || doom != doomTicket) return;
+            Cloud remote = brain.Remote;
+            if (remote != null && (remote.Model == brain.Unsighted || stuck) && SwitchVisionModel(remote))
+            {
+                nextDoom = clock.Elapsed.TotalSeconds + 10;
+                return;
+            }
+            if (string.IsNullOrEmpty(said)) return;
+            if (System.Text.RegularExpressions.Regex.IsMatch(said, @"\b(not doomscrolling|no youtube|no shorts|no reels|not watching|nothing wrong)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return;
+            if (ticket != asking || (talkState != TalkState.Off && talkState == TalkState.Thinking) || typer.Visible || chatting || hidden || dragging) return;
+            brain.Remember("(You caught them doomscrolling on YouTube Shorts / Reels.)", said);
+            TellAlert("DOOMSCROLL DETECTED!", said);
+            nextDoom = clock.Elapsed.TotalSeconds + 25;
+            Play(seat != null ? perchGlitch : glitch);
+            if (!hidden) frames.Start();
+            RenderFrame();
+            PassThrough(true);
+            Rectangle screenBounds = Screen.FromPoint(Cursor.Position).Bounds;
+            glitchFx.Step(screenBounds, Cursor.Position, true);
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    Computer.CloseDoomTab(delegate(Point pos)
+                    {
+                        Post(delegate { glitchFx.Step(screenBounds, pos, true); });
+                    });
+                    Thread.Sleep(220);
+                }
+                catch (Exception) { }
+                finally
+                {
+                    Post(delegate
+                    {
+                        glitchFx.Step(screenBounds, Cursor.Position, false);
+                        PassThrough(false);
+                    });
+                }
+            });
         }
 
         private void CheckGlance(double now, long quiet)
         {
             if (!preferences.Watch || glancing) return;
-            if (nextGlance < 0) nextGlance = now + Math.Min(20, GlanceGap);
-            if (now < nextGlance || quiet > 600000 || brain.Model == null || hidden || chatting || dragging || typer.Visible || talkState != TalkState.Off) return;
-            nextGlance = now + GlanceGap * (0.8 + random.NextDouble() * 0.4);
+            if (nextGlance < 0) nextGlance = now + GlanceGap;
+            if (now < nextGlance || quiet > 600000 || brain.Model == null || hidden || chatting || dragging || typer.Visible) return;
+            if (talkState != TalkState.Off && (talkState == TalkState.Thinking || replyDone < 0 || now - replyDone < 6)) return;
+            EnsureVisionModel();
             if (Unseeing() != null) return;
+            nextGlance = now + GlanceGap;
             byte[] shot;
+            string activeTitle = null;
             try
             {
+                activeTitle = ScreenContext();
                 using (Bitmap screen = CaptureScreen())
                 {
                     if (screen == null) { lastPrint = null; mainframe.ShowProblem(BlackScreen); return; }
-                    if (!Changed(screen, lastGlance < 0 || now - lastGlance >= 300)) return;
+                    if (!Changed(screen, lastGlance < 0 || now - lastGlance >= GlanceGap)) return;
                     shot = Jpeg(screen, 1280);
                 }
             }
             catch (Exception) { lastPrint = null; mainframe.ShowProblem("Couldn't capture the screen. I'll try again."); return; }
+            if (talkState != TalkState.Off) CloseTalk();
             glancing = true;
             lastGlance = now;
             int ticket = asking;
             int watch = watchTicket;
+            string sysPrompt = Brain.Persona + GlanceSystem + (!string.IsNullOrWhiteSpace(activeTitle) ? "\n(Context: " + activeTitle.Trim() + " — base your comment on what is truly open, never guess a random game.)" : "");
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string said = null;
                 string problem = null;
-                try { said = GlanceReply(brain.See(shot, Brain.Persona, GlanceLine, 90)); }
-                catch (Exception) { problem = "Couldn't read the screen. I'll try again."; }
-                Post(delegate { FinishGlance(ticket, watch, said, problem); });
+                bool stuck = false;
+                try { said = GlanceReply(brain.See(shot, sysPrompt, GlanceLine, 120)); }
+                catch (Exception error) { stuck = Brain.Stalled(error); problem = error is BrainException ? error.Message : "Couldn't read the screen. I'll try again."; }
+                Post(delegate { FinishGlance(ticket, watch, said, problem, stuck); });
             });
         }
 
         private static string GlanceReply(string said)
         {
             said = Brain.Clean(Safety.Filter(said));
-            return System.Text.RegularExpressions.Regex.IsMatch(said, @"^(SKIP|\[SKIP\])[.!?]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ? "" : said;
+            said = System.Text.RegularExpressions.Regex.Replace(said, @"^\[Active window:[^\]]*\]\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            said = System.Text.RegularExpressions.Regex.Replace(said, @"^\(You glance[^)]*\)\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            if (System.Text.RegularExpressions.Regex.IsMatch(said, @"^(SKIP|\[SKIP\])[.!?]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return "";
+            if (System.Text.RegularExpressions.Regex.IsMatch(said, @"(glance at their screen|React in one short line|specific you can see|Look at this full-screen screenshot|Output ONLY your comment|never repeat these instructions)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return "";
+            return said;
         }
 
-        private void FinishGlance(int ticket, int watch, string said, string problem)
+        private void FinishGlance(int ticket, int watch, string said, string problem, bool stuck = false)
         {
             glancing = false;
             if (!preferences.Watch || watch != watchTicket) return;
+            Cloud remote = brain.Remote;
+            if (remote != null && (remote.Model == brain.Unsighted || stuck) && SwitchVisionModel(remote))
+            {
+                lastPrint = null;
+                nextGlance = clock.Elapsed.TotalSeconds + Math.Max(10, GlanceGap);
+                return;
+            }
             string unseen = Unseeing();
             if (unseen != null || problem != null) { lastPrint = null; mainframe.ShowProblem(unseen ?? problem); return; }
             if (string.IsNullOrEmpty(said)) return;
-            if (ticket != asking || talkState != TalkState.Off || typer.Visible || chatting || hidden || dragging) { lastPrint = null; return; }
+            if (ticket != asking || (talkState != TalkState.Off && talkState == TalkState.Thinking) || typer.Visible || chatting || hidden || dragging) { lastPrint = null; return; }
             brain.Remember("(You glanced at their screen.)", said);
             Tell("watching", said);
         }
@@ -1598,7 +1835,7 @@ namespace CapriDesktop
 
         private Bitmap CaptureScreen()
         {
-            return CaptureScreen(CaptureArea(Native.GetForegroundWindow()));
+            return CaptureScreen(CaptureArea(FrontUserWindow()));
         }
 
         private static Rectangle CaptureArea(IntPtr window)
@@ -1617,6 +1854,7 @@ namespace CapriDesktop
                 if (drawn != null && !hidden) Smear(shot, drawn, anchor.X - area.X, anchor.Y - area.Y, drawn.Width, drawn.Height);
                 if (box.Visible) Smear(shot, null, box.Left - area.X, box.Top - area.Y, box.Width, box.Height);
                 if (pill.Visible) Smear(shot, null, pill.Left - area.X, pill.Top - area.Y, pill.Width, pill.Height);
+                if (typer.Visible) Smear(shot, null, typer.Left - area.X, typer.Top - area.Y, typer.Width, typer.Height);
                 if (Black(shot)) { shot.Dispose(); return null; }
                 return shot;
             }
@@ -2046,8 +2284,18 @@ namespace CapriDesktop
         private void Tell(string shown, string line)
         {
             if (hidden) SetHidden(false);
+            box.Alert = false;
             heard = shown;
             box.Prompt = "> sys: ";
+            Answer(++asking, line, TalkState.Talking);
+        }
+
+        private void TellAlert(string shown, string line)
+        {
+            if (hidden) SetHidden(false);
+            box.Alert = true;
+            heard = shown;
+            box.Prompt = "> ALERT: ";
             Answer(++asking, line, TalkState.Talking);
         }
 
@@ -2556,6 +2804,22 @@ namespace CapriDesktop
                     if (told != null) told.Tell("Capri's hands already did what they just asked (" + tool + "): " + result + " Don't call a tool for it again. React to it in one short line.");
                 });
             }
+            else if ((preferences.LiveSight || Hands.AskingToLook(text)) && !testing)
+            {
+                Agent told = agent;
+                string quickContext = ScreenContext();
+                if (told != null && !string.IsNullOrWhiteSpace(quickContext))
+                    told.Tell("[Live Screen OS Info right now] " + quickContext + " — Base your answer on what is actually open on their screen (e.g. Spotify), never guess a random game.");
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    try
+                    {
+                        string seen = LookAt(text);
+                        if (told != null && !string.IsNullOrEmpty(seen)) told.Tell("[Live Screen Vision] " + seen + " Help them with what they asked about their screen.");
+                    }
+                    catch (Exception) { }
+                });
+            }
             reply = null;
             replyDone = -1;
             Say(null);
@@ -2699,15 +2963,33 @@ namespace CapriDesktop
             brain.Cancel();
             voice.Stop();
             int ticket = ++asking;
+            box.Alert = false;
             heard = shown;
             box.Prompt = prompt;
             string blocked = Safety.Screen(text);
             if (blocked != null) { Answer(ticket, blocked, TalkState.Talking); return; }
             Func<string, string> think = Think;
+            bool liveSight = (preferences.LiveSight || Hands.AskingToLook(text)) && think == null;
+            byte[] screenShot = null;
+            string windowInfo = null;
             if (think == null)
             {
                 if (brain.Model == null) { Answer(ticket, Brain.Offline, TalkState.Dormant); FindBrain(); mainframe.Restore(); return; }
-                think = brain.Ask;
+                if (liveSight) EnsureVisionModel();
+                if (liveSight && Unseeing() == null)
+                {
+                    try
+                    {
+                        windowInfo = ScreenContext();
+                        using (Bitmap screen = CaptureScreen())
+                        {
+                            if (screen != null) screenShot = Jpeg(screen, 1280);
+                        }
+                    }
+                    catch (Exception) { screenShot = null; }
+                }
+                if (screenShot != null) think = delegate(string q) { return brain.Ask(q, screenShot, windowInfo); };
+                else think = brain.Ask;
             }
             reply = null;
             replyDone = -1;
@@ -2734,7 +3016,7 @@ namespace CapriDesktop
                 {
                     if (!IsDisposed) BeginInvoke((Action)delegate
                     {
-                        if (stuck && ticket == asking && switches < 2 && SwitchModel(remote)) { Hear(text, shown, prompt, switches + 1); return; }
+                        if ((stuck || (liveSight && remote != null && remote.Model == brain.Unsighted)) && ticket == asking && switches < 3 && (liveSight ? SwitchVisionModel(remote) : SwitchModel(remote))) { Hear(text, shown, prompt, switches + 1); return; }
                         if (problem != null && ticket == asking) mainframe.ShowProblem(problem.Length > 60 ? problem.Substring(0, 57) + "..." : problem);
                         Answer(ticket, said, state, quiet);
                         if (said == Brain.Offline) FindBrain();
@@ -2754,6 +3036,19 @@ namespace CapriDesktop
             ChooseModel(next, false);
             mainframe.ShowCloud(brain.Remote, cloudModels);
             mainframe.ShowProblem(old.Substring(old.IndexOf('/') + 1) + " wasn't answering, so she switched to " + next.Substring(next.IndexOf('/') + 1) + ".");
+            return true;
+        }
+
+        private bool SwitchVisionModel(Cloud remote)
+        {
+            if (remote == null || remote.Kind != "nvidia" || brain.Remote != remote) return false;
+            string old = remote.Model;
+            stalled.Add(old);
+            string next = Brain.NextVision(old, cloudModels, stalled);
+            if (next == null) return false;
+            ChooseModel(next, true);
+            mainframe.ShowCloud(brain.Remote, cloudModels);
+            mainframe.ShowProblem(old.Substring(old.IndexOf('/') + 1) + " can't see screens, switched to " + next.Substring(next.IndexOf('/') + 1) + ".");
             return true;
         }
 
@@ -2833,6 +3128,7 @@ namespace CapriDesktop
             slowWarned = false;
             reply = null;
             replyDone = -1;
+            box.Alert = false;
             box.Opened = -1;
             box.Leaving = -1;
             if (box.Visible) box.Hide();
@@ -2848,7 +3144,8 @@ namespace CapriDesktop
                 replyDone = now;
                 if (talkState == TalkState.Talking) talkState = TalkState.Online;
             }
-            if (replyDone >= 0 && box.Leaving < 0 && !typer.Visible && !(local && !earsReady && asking == earsNotice) && now > voiceUntil && now > replyDone + Math.Min(14, 4 + reply.Length * 0.05)) box.Leaving = now;
+            double holdTime = box.Alert ? 14.0 : Math.Min(28, 4 + (reply ?? "").Length * 0.055);
+            if (replyDone >= 0 && box.Leaving < 0 && !typer.Visible && !(local && !earsReady && asking == earsNotice) && now > voiceUntil && now > replyDone + holdTime) box.Leaving = now;
             if (box.Leaving >= 0 && now - box.Leaving > 0.25) { CloseTalk(); return; }
             if (!box.Visible && box.Opened < 0) box.Opened = now;
             box.State = talkState;
@@ -6048,7 +6345,18 @@ namespace CapriDesktop
         [DllImport("user32.dll")] internal static extern void keybd_event(byte key, byte scan, int flags, UIntPtr extra);
         [DllImport("user32.dll")] internal static extern int GetDpiForWindow(IntPtr window);
         [DllImport("user32.dll")] internal static extern bool AllowSetForegroundWindow(int process);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int maxCount);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, string lParam);
+
+        internal static string WindowTitle(IntPtr window)
+        {
+            if (window == IntPtr.Zero) return null;
+            System.Text.StringBuilder text = new System.Text.StringBuilder(256);
+            if (GetWindowText(window, text, text.Capacity) <= 0) return null;
+            string title = text.ToString().Trim();
+            if (title.Length == 0 || string.Equals(title, "Program Manager", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "Default IME", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "MSCTFIME UI", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "Capri", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "Capri Mainframe", StringComparison.OrdinalIgnoreCase)) return null;
+            return title;
+        }
         [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr window);
         [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr window, IntPtr dc);
         [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr dc);

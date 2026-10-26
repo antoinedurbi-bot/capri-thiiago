@@ -633,6 +633,151 @@ namespace CapriDesktop
         }
 
         private static bool Extended(short code) { return (code >= 0x21 && code <= 0x28) || code == 0x2E || code == 0x5B; }
+
+        internal static void CloseDoomTab(Action<Point> onMove = null)
+        {
+            Arm();
+            OpenWindow targetWin = null;
+            List<OpenWindow> all = Hands.Windows();
+            foreach (OpenWindow w in all)
+            {
+                if (Regex.IsMatch(w.Program ?? "", @"^(chrome|msedge|firefox|brave|opera|vivaldi)$", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(w.Title ?? "", @"(shorts|reels|tiktok|youtube|instagram)", RegexOptions.IgnoreCase))
+                {
+                    targetWin = w;
+                    break;
+                }
+            }
+            if (targetWin == null)
+            {
+                foreach (OpenWindow w in all)
+                {
+                    if (Regex.IsMatch(w.Program ?? "", @"^(chrome|msedge|firefox|brave|opera|vivaldi)$", RegexOptions.IgnoreCase))
+                    {
+                        targetWin = w;
+                        break;
+                    }
+                }
+            }
+            if (targetWin == null) targetWin = Pick();
+            if (targetWin == null || targetWin.Handle == IntPtr.Zero) return;
+            Hands.Front(targetWin.Handle);
+            Thread.Sleep(80);
+            Box rect;
+            Rectangle bounds = GetWindowRect(targetWin.Handle, out rect)
+                ? Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom)
+                : new Rectangle(0, 0, 1920, 1080);
+            Point closePoint = Point.Empty;
+            Point tabPoint = Point.Empty;
+            Thread finder = new Thread(delegate()
+            {
+                try
+                {
+                    AutomationElement root = AutomationElement.FromHandle(targetWin.Handle);
+                    CacheRequest cache = new CacheRequest();
+                    cache.Add(AutomationElement.NameProperty);
+                    cache.Add(AutomationElement.ControlTypeProperty);
+                    cache.Add(AutomationElement.BoundingRectangleProperty);
+                    cache.Add(SelectionItemPattern.IsSelectedProperty);
+                    Condition cond = new AndCondition(
+                        new PropertyCondition(AutomationElement.IsOffscreenProperty, false),
+                        new OrCondition(
+                            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+                            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)));
+                    AutomationElementCollection items;
+                    using (cache.Activate()) items = root.FindAll(TreeScope.Descendants, cond);
+                    Rectangle bestTab = Rectangle.Empty;
+                    int bestScore = 0;
+                    List<KeyValuePair<string, Rectangle>> buttons = new List<KeyValuePair<string, Rectangle>>();
+                    foreach (AutomationElement el in items)
+                    {
+                        AutomationElement.AutomationElementInformation info = el.Cached;
+                        System.Windows.Rect r = info.BoundingRectangle;
+                        if (r.IsEmpty || r.Width < 4 || r.Height < 4) continue;
+                        Rectangle b = Rectangle.FromLTRB((int)r.Left, (int)r.Top, (int)r.Right, (int)r.Bottom);
+                        if (b.Top > bounds.Top + 140) continue;
+                        string n = info.Name ?? "";
+                        if (info.ControlType == ControlType.TabItem)
+                        {
+                            bool selected = false;
+                            try
+                            {
+                                object sel = el.GetCachedPropertyValue(SelectionItemPattern.IsSelectedProperty, true);
+                                if (sel is bool) selected = (bool)sel;
+                            }
+                            catch { }
+                            int s = selected ? 10 : 0;
+                            if (Regex.IsMatch(n, @"(shorts|reels|tiktok)", RegexOptions.IgnoreCase)) s += 5;
+                            else if (Regex.IsMatch(n, @"(youtube|instagram)", RegexOptions.IgnoreCase)) s += 3;
+                            if (s > bestScore) { bestScore = s; bestTab = b; }
+                        }
+                        else if (info.ControlType == ControlType.Button)
+                        {
+                            buttons.Add(new KeyValuePair<string, Rectangle>(n, b));
+                        }
+                    }
+                    if (!bestTab.IsEmpty)
+                    {
+                        tabPoint = new Point(bestTab.Left + bestTab.Width - Math.Min(16, bestTab.Width / 4), bestTab.Top + bestTab.Height / 2);
+                        foreach (KeyValuePair<string, Rectangle> btn in buttons)
+                        {
+                            if (bestTab.IntersectsWith(btn.Value) && Regex.IsMatch(btn.Key, @"\b(close|cerrar|fermer|tancar)\b", RegexOptions.IgnoreCase))
+                            {
+                                closePoint = new Point(btn.Value.Left + btn.Value.Width / 2, btn.Value.Top + btn.Value.Height / 2);
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception) { }
+            });
+            finder.IsBackground = true;
+            finder.Start();
+            finder.Join(900);
+            Point aim = closePoint != Point.Empty ? closePoint
+                      : tabPoint != Point.Empty ? tabPoint
+                      : new Point(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 3);
+            Point from;
+            if (!GetCursorPos(out from)) from = aim;
+            int steps = 28;
+            for (int i = 1; i <= steps && !interrupted; i++)
+            {
+                double share = (double)i / steps;
+                share = share * share * (3 - 2 * share);
+                Point cur = new Point(from.X + (int)Math.Round((aim.X - from.X) * share), from.Y + (int)Math.Round((aim.Y - from.Y) * share));
+                SetCursorPos(cur.X, cur.Y);
+                if (onMove != null) onMove(cur);
+                Thread.Sleep(18);
+            }
+            if (interrupted) return;
+            Thread.Sleep(60);
+            Hands.Front(targetWin.Handle);
+            if (closePoint != Point.Empty)
+            {
+                Mouse(0x0002, 0);
+                Thread.Sleep(40);
+                Mouse(0x0004, 0);
+                Thread.Sleep(90);
+            }
+            else if (tabPoint != Point.Empty)
+            {
+                Mouse(0x0020, 0);
+                Thread.Sleep(40);
+                Mouse(0x0040, 0);
+                Thread.Sleep(90);
+            }
+            else
+            {
+                Keys("ctrl+w");
+                Thread.Sleep(90);
+            }
+            StringBuilder afterTitle = new StringBuilder(256);
+            GetWindowText(targetWin.Handle, afterTitle, afterTitle.Capacity);
+            if (Regex.IsMatch(afterTitle.ToString(), @"(shorts|reels|tiktok|youtube)", RegexOptions.IgnoreCase))
+            {
+                Keys("ctrl+w");
+            }
+        }
     }
 
     internal sealed class Job

@@ -1,0 +1,15 @@
+# Build output binaries
+Capri.exe
+*.exe
+*.old.exe
+*.dll
+*.pdb
+
+# Visual Studio & editor artifacts
+.vs/
+*.user
+*.suo
+
+# Temporary and log files
+*.log
+failure.txt

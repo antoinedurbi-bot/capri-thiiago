@@ -7,6 +7,17 @@
   Bring Capri (back lol) to life as a desktop companion! Inspired by jpartnma_'s tiktok video.
 </p>
 
+> [!NOTE]
+> **Custom Community Edition (v0.2.x)**  
+> This is an enhanced, non-commercial fork based on the original **[Capri Desktop](https://github.com/lachydotmcg/capri-desktop)** created by **[Lachy](https://github.com/lachydotmcg)** under the **[PolyForm Noncommercial License 1.0.0](LICENSE.md)**. All original credits, assets, and copyrights belong to the original author.
+
+### 🌟 New Features in this Version (v0.2.x)
+- 👁️ **Real-Time Screen Vision & Context:** Full screen glance awareness with ground-truth active window detection (knows what apps and songs are open).
+- 🛡️ **DoomScroll Detector:** Monitors YouTube Shorts / Instagram Reels / TikTok, triggers a Cyberpunk glitch effect, alerts the user, and closes the distracting tab.
+- 🎵 **Spotify & App Automation (Bilingual ES / EN):** Voice commands to launch apps (*"Ábreme Spotify"* / *"Open Spotify"*) and search & play songs automatically.
+- 🖥️ **Cyberpunk HUD Mainframe:** Redesigned terminal interface with neon accents, custom versioning, and no text clipping.
+- ⚡ **High-Speed Vision Pipeline:** Sub-second vision reasoning using NVIDIA Nemotron-VL multimodal models.
+
 <p align="center">
   <a href="https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-Setup.exe"><b>Download for Windows</b></a>
   &nbsp;·&nbsp;
