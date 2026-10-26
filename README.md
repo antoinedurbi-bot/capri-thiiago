@@ -116,6 +116,7 @@ Just ask her for things, like "open Spotify", "play Blinding Lights", "pause", "
 ## Coming up
 
 - Working with your files: open, read and edit the ones you pick
+- Lockdown mode where no one can touch your PC, she only unlocks it with a special code
 - Controlling YouTube and your apps: skip, fullscreen, click, type and scroll
 - A free voice that runs on your PC
 - Remembering things about you
@@ -123,7 +124,6 @@ Just ask her for things, like "open Spotify", "play Blinding Lights", "pause", "
 - Her own cursor that she moves around your screen
 - Head pats (smh)
 - Mischief mode: screen glitches, stealing your cursor, "you've been hacked" notes
-- Mac and Linux: her voice, the Mainframe and doing things for you
 
 ## Licence
 
