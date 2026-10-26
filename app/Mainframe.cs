@@ -111,8 +111,8 @@ namespace CapriDesktop
             hint = Caption("Have Ollama? Open it, then press Refresh.", 28, 264, Look.Mono(9f, FontStyle.Italic, GraphicsUnit.Point), Look.Dim);
             textEntry = Input(28, 170, 284);
             textEntry.Box.UseSystemPasswordChar = true;
-            textEntry.Box.AccessibleName = "NVIDIA, OpenAI, Anthropic or DeepSeek API key";
-            textEntry.Cue = "Optional: NVIDIA / GPT / Claude / DeepSeek";
+            textEntry.Box.AccessibleName = "NVIDIA, OpenAI, Anthropic, DeepSeek or Groq API key";
+            textEntry.Cue = "Optional: NVIDIA / GPT / Claude / DeepSeek / Groq";
             textConnect = Make("Connect", 320, 170, 76, 28, delegate { ConnectText(); });
             freeKey = Make("Free key", 296, 58, 100, 22, delegate { capri.OpenFreeKeyPage(); });
             freeKey.Accent = Look.Cyan;
@@ -446,7 +446,7 @@ namespace CapriDesktop
             textSaved = tail != null;
             freeKey.Visible = !textSaved;
             keyNote.Visible = !textSaved;
-            textEntry.Cue = textSaved ? "Key saved, ends " + tail : "Optional: NVIDIA/GPT/Claude/DeepSeek";
+            textEntry.Cue = textSaved ? "Key saved, ends " + tail : "Optional: NVIDIA/GPT/Claude/DeepSeek/Groq";
             RelabelText();
         }
 

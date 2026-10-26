@@ -211,13 +211,14 @@ namespace CapriDesktop
         internal volatile string Model;
         internal Cloud(string key, string model) { Key = key; Kind = KindOf(key); Model = model; }
         internal bool Claude { get { return Kind == "anthropic"; } }
-        internal string Name { get { return Kind == "anthropic" ? "Claude" : Kind == "deepseek" ? "DeepSeek" : Kind == "nvidia" ? "NVIDIA" : "ChatGPT"; } }
-        internal string Company { get { return Kind == "anthropic" ? "Anthropic" : Kind == "deepseek" ? "DeepSeek" : Kind == "nvidia" ? "NVIDIA" : "OpenAI"; } }
+        internal string Name { get { return Kind == "anthropic" ? "Claude" : Kind == "deepseek" ? "DeepSeek" : Kind == "nvidia" ? "NVIDIA" : Kind == "groq" ? "Groq" : "ChatGPT"; } }
+        internal string Company { get { return Kind == "anthropic" ? "Anthropic" : Kind == "deepseek" ? "DeepSeek" : Kind == "nvidia" ? "NVIDIA" : Kind == "groq" ? "Groq" : "OpenAI"; } }
 
         internal static string KindOf(string key)
         {
             if (key.StartsWith("sk-ant-", StringComparison.Ordinal)) return "anthropic";
             if (key.StartsWith("nvapi-", StringComparison.Ordinal)) return "nvidia";
+            if (key.StartsWith("gsk_", StringComparison.Ordinal)) return "groq";
             if (Regex.IsMatch(key, "^sk-[0-9a-f]{32}$")) return "deepseek";
             return key.StartsWith("sk-", StringComparison.Ordinal) ? "openai" : null;
         }
@@ -236,6 +237,8 @@ namespace CapriDesktop
         internal static string Anthropic = "https://api.anthropic.com";
         internal static string DeepSeek = "https://api.deepseek.com";
         internal static string Nvidia = "https://integrate.api.nvidia.com";
+        internal static string Groq = "https://api.groq.com/openai/v1";
+        private static readonly string[] GroqPicks = { "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b" };
         private static readonly string[] NvidiaPicks = { "nvidia/nemotron-3.5-super-vl-120b-a12b", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "minimaxai/minimax-m3.1-flash", "meta/llama-3.2-11b-vision-instruct", "z-ai/glm-5.3-flash", "nvidia/nemotron-3.5-bolt-e4b", "openai/gpt-oss-20b" };
         internal static readonly string[] NvidiaVisionPicks = { "nvidia/nemotron-3.5-super-vl-120b-a12b", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "minimaxai/minimax-m3.1-flash", "meta/llama-3.2-11b-vision-instruct" };
         private static readonly string[] NvidiaDead = { "google/gemma-4-31b-it", "deepseek-ai/deepseek-v4.1-flash", "z-ai/glm-5.3", "moonshotai/kimi-k2.6", "google/gemma-3-12b-it", "meta/llama-3.2-90b-vision-instruct", "google/gemma-3-4b-it", "microsoft/phi-3-vision-128k-instruct" };
@@ -366,6 +369,7 @@ namespace CapriDesktop
             if (kind == "anthropic") return Anthropic + "/v1" + path;
             if (kind == "deepseek") return DeepSeek + path;
             if (kind == "nvidia") return Nvidia + "/v1" + path;
+            if (kind == "groq") return Groq + path;
             return OpenAi + "/v1" + path;
         }
 
@@ -402,6 +406,7 @@ namespace CapriDesktop
             if (kind == "anthropic") return models.Contains("claude-opus-5-5") ? "claude-opus-5-5" : models[0];
             if (kind == "deepseek") return models.Contains("deepseek-flash") ? "deepseek-flash" : models[0];
             if (kind == "nvidia") { foreach (string id in NvidiaPicks) if (models.Contains(id)) return id; return models[0]; }
+            if (kind == "groq") { foreach (string id in GroqPicks) if (models.Contains(id)) return id; return models[0]; }
             foreach (string id in models) if (id.StartsWith("gpt-", StringComparison.Ordinal) && id.EndsWith("-mini", StringComparison.Ordinal)) return id;
             return models[0];
         }
