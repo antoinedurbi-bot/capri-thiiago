@@ -404,6 +404,7 @@ namespace CapriDesktop
         private double nextGlitch;
         private int clicks;
         private bool riding;
+        private bool gameMode;
         private Job job;
         private string working;
         private bool pendingClick;
@@ -666,6 +667,7 @@ namespace CapriDesktop
                 if (!testing) CheckDoomScroll(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
                 if (!testing) CheckGlance(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
                 if (!testing) CheckWander(clock.Elapsed.TotalSeconds, Native.IdleMilliseconds());
+                if (!testing) CheckGameMode();
                 StayOnTop();
                 CheckSeat(clock.Elapsed.TotalSeconds);
                 CheckChat(clock.Elapsed.TotalSeconds);
@@ -2054,8 +2056,49 @@ namespace CapriDesktop
                 if (!form.IsHandleCreated) continue;
                 int style = Native.GetWindowLong(form.Handle, -20);
                 if ((style & 0x80000) == 0) continue;
-                Native.SetWindowLong(form.Handle, -20, on || (form == this && riding) ? style | 0x20 : style & ~0x20);
+                Native.SetWindowLong(form.Handle, -20, on || gameMode || (form == this && riding) ? style | 0x20 : style & ~0x20);
             }
+        }
+
+        // Never let her block a click meant for a game: idle/standing (not perched, not being
+        // ridden - both of those are already click-through, see the smoke test around "perched
+        // with click-through") is a normal hit-testable window, and StayOnTop() keeps her above
+        // everything including a fullscreen game. A fullscreen or borderless-fullscreen game is
+        // detected generically (no hardcoded game list to maintain) as: the foreground window's
+        // real bounds (DWM-adjusted would be ideal, but GetWindowRect's couple-pixel slack below
+        // already absorbs typical border rounding) exactly cover its monitor, and it isn't one of
+        // our own windows or the desktop shell (which is also monitor-sized when nothing is open).
+        [StructLayout(LayoutKind.Sequential)] private struct ForegroundBox { internal int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out ForegroundBox box);
+        [DllImport("user32.dll")] private static extern int GetWindowThreadProcessId(IntPtr window, out int process);
+        private static readonly Regex ShellProcess = new Regex("^(explorer|ShellExperienceHost|StartMenuExperienceHost|SearchHost|dwm)$", RegexOptions.IgnoreCase);
+
+        private void CheckGameMode()
+        {
+            bool detected = IsFullscreenForeground();
+            if (detected == gameMode) return;
+            gameMode = detected;
+            PassThrough(false); // re-apply window styles with the updated gameMode bit folded in
+        }
+
+        private bool IsFullscreenForeground()
+        {
+            IntPtr foreground = Native.GetForegroundWindow();
+            if (foreground == IntPtr.Zero || foreground == Handle) return false;
+            foreach (Form own in new Form[] { pill, box, typer, mainframe }) if (own.IsHandleCreated && foreground == own.Handle) return false;
+            ForegroundBox fgBox;
+            if (!GetWindowRect(foreground, out fgBox)) return false;
+            Rectangle window = Rectangle.FromLTRB(fgBox.Left, fgBox.Top, fgBox.Right, fgBox.Bottom);
+            Rectangle monitor = Screen.FromHandle(foreground).Bounds;
+            const int Slack = 2;
+            if (Math.Abs(window.Left - monitor.Left) > Slack || Math.Abs(window.Top - monitor.Top) > Slack ||
+                Math.Abs(window.Right - monitor.Right) > Slack || Math.Abs(window.Bottom - monitor.Bottom) > Slack) return false;
+            int process;
+            GetWindowThreadProcessId(foreground, out process);
+            try { using (Process owner = Process.GetProcessById(process)) { if (ShellProcess.IsMatch(owner.ProcessName)) return false; } }
+            catch (ArgumentException) { }
+            catch (InvalidOperationException) { }
+            return true;
         }
 
         private void UseBrain(string[] installed, Machine found, Pick local)
